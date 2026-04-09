@@ -8,7 +8,7 @@ python -m venv .venv        # 다시 생성
 ============== flutter & python 연동 API 세팅
 1. 백엔드 서버 켜기
 uvicorn main:app --reload
-## Application startup complete. 시 성공 ##
+* Application startup complete. 시 성공 *
 
 2. 플러터(flutter)에서 요청 보내기
 flutter pub add http                // http 패키지 설치
