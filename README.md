@@ -5,7 +5,7 @@ Ongidung / Backend
 실행 시 (venv)폴더 삭제
 python -m venv .venv        # 다시 생성
 
-============== flutter & python 연동 API 세팅
+==================== flutter & python 연동 API 세팅
 1. 백엔드 서버 켜기
 ``` dart
 uvicorn main:app --reload
