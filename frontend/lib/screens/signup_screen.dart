@@ -24,9 +24,14 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   void dispose() {
-    _nameCtrl.dispose(); _birthCtrl.dispose(); _phoneCtrl.dispose();
-    _addressCtrl.dispose(); _guardianPhoneCtrl.dispose();
-    _idCtrl.dispose(); _pwCtrl.dispose(); _pw2Ctrl.dispose();
+    _nameCtrl.dispose();
+    _birthCtrl.dispose();
+    _phoneCtrl.dispose();
+    _addressCtrl.dispose();
+    _guardianPhoneCtrl.dispose();
+    _idCtrl.dispose();
+    _pwCtrl.dispose();
+    _pw2Ctrl.dispose();
     super.dispose();
   }
 
@@ -41,12 +46,18 @@ class _SignupScreenState extends State<SignupScreen> {
       body: Stepper(
         currentStep: _currentStep,
         onStepContinue: () {
-          if (_currentStep < 2) setState(() => _currentStep++);
-          else _submitSignup();
+          if (_currentStep < 2) {
+            setState(() => _currentStep++);
+          } else {
+            _submitSignup();
+          }
         },
         onStepCancel: () {
-          if (_currentStep > 0) setState(() => _currentStep--);
-          else Navigator.pop(context);
+          if (_currentStep > 0) {
+            setState(() => _currentStep--);
+          } else {
+            Navigator.pop(context);
+          }
         },
         controlsBuilder: (context, details) => Padding(
           padding: const EdgeInsets.only(top: 16),
@@ -54,11 +65,15 @@ class _SignupScreenState extends State<SignupScreen> {
             children: [
               ElevatedButton(
                 onPressed: details.onStepContinue,
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade600, foregroundColor: Colors.white),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade600,
+                    foregroundColor: Colors.white),
                 child: Text(_currentStep == 2 ? '가입 완료' : '다음'),
               ),
               const SizedBox(width: 8),
-              TextButton(onPressed: details.onStepCancel, child: Text(_currentStep == 0 ? '취소' : '이전')),
+              TextButton(
+                  onPressed: details.onStepCancel,
+                  child: Text(_currentStep == 0 ? '취소' : '이전')),
             ],
           ),
         ),
@@ -88,9 +103,11 @@ class _SignupScreenState extends State<SignupScreen> {
   Widget _buildBasicInfoStep() {
     return Column(
       children: [
-        _field(_nameCtrl, '이름', Icons.person, validator: (v) => v!.isEmpty ? '이름을 입력하세요' : null),
+        _field(_nameCtrl, '이름', Icons.person,
+            validator: (v) => v!.isEmpty ? '이름을 입력하세요' : null),
         const SizedBox(height: 12),
-        _field(_birthCtrl, '생년월일 (예: 1950-03-15)', Icons.cake, hint: 'YYYY-MM-DD'),
+        _field(_birthCtrl, '생년월일 (예: 1950-03-15)', Icons.cake,
+            hint: 'YYYY-MM-DD'),
         const SizedBox(height: 12),
         Row(
           children: [
@@ -118,18 +135,25 @@ class _SignupScreenState extends State<SignupScreen> {
       (UserType.general, '일반 사용자', Icons.person, '일반 1인 가구'),
     ];
     return Column(
-      children: types.map((t) => Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        color: _selectedType == t.$1 ? Colors.blue.shade50 : null,
-        child: RadioListTile<UserType>(
-          value: t.$1,
-          groupValue: _selectedType,
-          onChanged: (v) => setState(() => _selectedType = v!),
-          title: Row(children: [Icon(t.$3, color: Colors.blue.shade600), const SizedBox(width: 8), Text(t.$2, style: const TextStyle(fontWeight: FontWeight.bold))]),
-          subtitle: Text(t.$4),
-          activeColor: Colors.blue.shade600,
-        ),
-      )).toList(),
+      children: types
+          .map((t) => Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                color: _selectedType == t.$1 ? Colors.blue.shade50 : null,
+                child: RadioListTile<UserType>(
+                  value: t.$1,
+                  groupValue: _selectedType,
+                  onChanged: (v) => setState(() => _selectedType = v!),
+                  title: Row(children: [
+                    Icon(t.$3, color: Colors.blue.shade600),
+                    const SizedBox(width: 8),
+                    Text(t.$2,
+                        style: const TextStyle(fontWeight: FontWeight.bold))
+                  ]),
+                  subtitle: Text(t.$4),
+                  activeColor: Colors.blue.shade600,
+                ),
+              ))
+          .toList(),
     );
   }
 
@@ -168,11 +192,13 @@ class _SignupScreenState extends State<SignupScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('입력 정보 확인', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('입력 정보 확인',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Text('이름: ${_nameCtrl.text}'),
               Text('연락처: ${_phoneCtrl.text}'),
-              Text('사용자 유형: ${_selectedType == UserType.elderly ? "독거노인" : _selectedType == UserType.child ? "아동" : _selectedType == UserType.guardian ? "보호자" : "일반"}'),
+              Text(
+                  '사용자 유형: ${_selectedType == UserType.elderly ? "독거노인" : _selectedType == UserType.child ? "아동" : _selectedType == UserType.guardian ? "보호자" : "일반"}'),
             ],
           ),
         ),
@@ -180,7 +206,8 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  Widget _field(TextEditingController ctrl, String label, IconData icon, {String? hint, String? Function(String?)? validator}) {
+  Widget _field(TextEditingController ctrl, String label, IconData icon,
+      {String? hint, String? Function(String?)? validator}) {
     return TextFormField(
       controller: ctrl,
       validator: validator,
@@ -195,7 +222,9 @@ class _SignupScreenState extends State<SignupScreen> {
 
   void _submitSignup() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('회원가입이 완료되었습니다! 로그인해주세요.'), backgroundColor: Colors.green),
+      const SnackBar(
+          content: Text('회원가입이 완료되었습니다! 로그인해주세요.'),
+          backgroundColor: Colors.green),
     );
     Navigator.pop(context);
   }

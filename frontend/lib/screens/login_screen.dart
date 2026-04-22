@@ -108,7 +108,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   TextButton(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SignupScreen())),
+                    onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SignupScreen())),
                     child: const Text('회원가입'),
                   ),
                   const Text('|', style: TextStyle(color: Colors.grey)),
@@ -146,8 +149,10 @@ class _LoginScreenState extends State<LoginScreen> {
             labelText: '비밀번호',
             prefixIcon: const Icon(Icons.lock),
             suffixIcon: IconButton(
-              icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              icon: Icon(
+                  _obscurePassword ? Icons.visibility_off : Icons.visibility),
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
             ),
             filled: true,
             fillColor: Colors.white,
@@ -173,19 +178,26 @@ class _LoginScreenState extends State<LoginScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.shade600,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             child: _isLoading
                 ? const CircularProgressIndicator(color: Colors.white)
-                : const Text('로그인', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                : const Text('로그인',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ),
         ),
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: _socialButton(Icons.message, '카카오 로그인', Colors.yellow.shade700)),
+            Expanded(
+                child: _socialButton(
+                    Icons.message, '카카오 로그인', Colors.yellow.shade700)),
             const SizedBox(width: 8),
-            Expanded(child: _socialButton(Icons.g_mobiledata, '구글 로그인', Colors.red.shade400)),
+            Expanded(
+                child: _socialButton(
+                    Icons.g_mobiledata, '구글 로그인', Colors.red.shade400)),
           ],
         ),
       ],
@@ -207,41 +219,64 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildPinPad() {
     return Column(
       children: [
-        const Text('PIN 번호 입력 (6자리)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const Text('PIN 번호 입력 (6자리)',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(6, (i) => Container(
-            width: 20,
-            height: 20,
-            margin: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: i < _pinDigits.length ? Colors.blue.shade600 : Colors.grey.shade300,
-              border: Border.all(color: Colors.blue.shade600),
-            ),
-          )),
+          children: List.generate(
+              6,
+              (i) => Container(
+                    width: 20,
+                    height: 20,
+                    margin: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: i < _pinDigits.length
+                          ? Colors.blue.shade600
+                          : Colors.grey.shade300,
+                      border: Border.all(color: Colors.blue.shade600),
+                    ),
+                  )),
         ),
         const SizedBox(height: 32),
-        for (var row in [['1','2','3'], ['4','5','6'], ['7','8','9'], ['','0','⌫']])
+        for (var row in [
+          ['1', '2', '3'],
+          ['4', '5', '6'],
+          ['7', '8', '9'],
+          ['', '0', '⌫']
+        ])
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: row.map((d) => GestureDetector(
-              onTap: () => d == '⌫' ? _removePin() : d.isNotEmpty ? _addPin(d) : null,
-              child: Container(
-                width: 80,
-                height: 64,
-                margin: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: d.isEmpty ? Colors.transparent : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: d.isEmpty ? [] : [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                ),
-                child: Center(
-                  child: Text(d, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                ),
-              ),
-            )).toList(),
+            children: row
+                .map((d) => GestureDetector(
+                      onTap: () => d == '⌫'
+                          ? _removePin()
+                          : d.isNotEmpty
+                              ? _addPin(d)
+                              : null,
+                      child: Container(
+                        width: 80,
+                        height: 64,
+                        margin: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: d.isEmpty ? Colors.transparent : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: d.isEmpty
+                              ? []
+                              : [
+                                  const BoxShadow(
+                                      color: Colors.black12, blurRadius: 4)
+                                ],
+                        ),
+                        child: Center(
+                          child: Text(d,
+                              style: const TextStyle(
+                                  fontSize: 24, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ))
+                .toList(),
           ),
       ],
     );
@@ -251,17 +286,24 @@ class _LoginScreenState extends State<LoginScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 24),
+        padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 24,
+            right: 24,
+            top: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('비밀번호 찾기', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text('비밀번호 찾기',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             const TextField(
-              decoration: InputDecoration(labelText: '등록된 휴대폰 번호', prefixIcon: Icon(Icons.phone)),
+              decoration: InputDecoration(
+                  labelText: '등록된 휴대폰 번호', prefixIcon: Icon(Icons.phone)),
             ),
             const SizedBox(height: 12),
             SizedBox(

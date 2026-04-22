@@ -13,25 +13,39 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   IconData _typeIcon(String type) {
     switch (type) {
-      case 'medication': return Icons.medication;
-      case 'activity': return Icons.directions_walk;
-      case 'guardian': return Icons.supervisor_account;
-      case 'device': return Icons.devices;
-      case 'schedule': return Icons.calendar_today;
-      case 'emergency': return Icons.sos;
-      default: return Icons.notifications;
+      case 'medication':
+        return Icons.medication;
+      case 'activity':
+        return Icons.directions_walk;
+      case 'guardian':
+        return Icons.supervisor_account;
+      case 'device':
+        return Icons.devices;
+      case 'schedule':
+        return Icons.calendar_today;
+      case 'emergency':
+        return Icons.sos;
+      default:
+        return Icons.notifications;
     }
   }
 
   Color _typeColor(String type) {
     switch (type) {
-      case 'medication': return Colors.teal;
-      case 'activity': return Colors.blue;
-      case 'guardian': return Colors.purple;
-      case 'device': return Colors.orange;
-      case 'schedule': return Colors.indigo;
-      case 'emergency': return Colors.red;
-      default: return Colors.grey;
+      case 'medication':
+        return Colors.teal;
+      case 'activity':
+        return Colors.blue;
+      case 'guardian':
+        return Colors.purple;
+      case 'device':
+        return Colors.orange;
+      case 'schedule':
+        return Colors.indigo;
+      case 'emergency':
+        return Colors.red;
+      default:
+        return Colors.grey;
     }
   }
 
@@ -45,7 +59,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         actions: [
           TextButton(
             onPressed: () => setState(() {
-              for (var n in state.notifications) n['isRead'] = true;
+              for (var n in state.notifications) {
+                n['isRead'] = true;
+              }
               state.unreadNotifications = 0;
             }),
             child: const Text('모두 읽음', style: TextStyle(color: Colors.white)),
@@ -80,23 +96,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
                 child: Icon(_typeIcon(type), color: _typeColor(type)),
               ),
-              title: Text(n['title'], style: TextStyle(fontWeight: isRead ? FontWeight.normal : FontWeight.bold)),
-              subtitle: Text(n['body'], maxLines: 2, overflow: TextOverflow.ellipsis),
+              title: Text(n['title'],
+                  style: TextStyle(
+                      fontWeight:
+                          isRead ? FontWeight.normal : FontWeight.bold)),
+              subtitle:
+                  Text(n['body'], maxLines: 2, overflow: TextOverflow.ellipsis),
               trailing: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(n['time'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  if (!isRead) Container(
-                    width: 8,
-                    height: 8,
-                    margin: const EdgeInsets.only(top: 4),
-                    decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
-                  ),
+                  Text(n['time'],
+                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  if (!isRead)
+                    Container(
+                      width: 8,
+                      height: 8,
+                      margin: const EdgeInsets.only(top: 4),
+                      decoration: const BoxDecoration(
+                          color: Colors.blue, shape: BoxShape.circle),
+                    ),
                 ],
               ),
               onTap: () => setState(() {
                 n['isRead'] = true;
-                state.unreadNotifications = state.notifications.where((n) => n['isRead'] == false).length;
+                state.unreadNotifications = state.notifications
+                    .where((n) => n['isRead'] == false)
+                    .length;
               }),
             ),
           );
@@ -113,20 +138,42 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void _showNotificationSettings() {
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('알림 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('알림 설정',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            SwitchListTile(value: true, onChanged: (_) {}, title: const Text('약 복용 알림'), contentPadding: EdgeInsets.zero),
-            SwitchListTile(value: true, onChanged: (_) {}, title: const Text('긴급 상황 알림'), contentPadding: EdgeInsets.zero),
-            SwitchListTile(value: true, onChanged: (_) {}, title: const Text('보호자 메시지 알림'), contentPadding: EdgeInsets.zero),
-            SwitchListTile(value: false, onChanged: (_) {}, title: const Text('활동량 알림'), contentPadding: EdgeInsets.zero),
-            SwitchListTile(value: true, onChanged: (_) {}, title: const Text('일정 알림'), contentPadding: EdgeInsets.zero),
+            SwitchListTile(
+                value: true,
+                onChanged: (_) {},
+                title: const Text('약 복용 알림'),
+                contentPadding: EdgeInsets.zero),
+            SwitchListTile(
+                value: true,
+                onChanged: (_) {},
+                title: const Text('긴급 상황 알림'),
+                contentPadding: EdgeInsets.zero),
+            SwitchListTile(
+                value: true,
+                onChanged: (_) {},
+                title: const Text('보호자 메시지 알림'),
+                contentPadding: EdgeInsets.zero),
+            SwitchListTile(
+                value: false,
+                onChanged: (_) {},
+                title: const Text('활동량 알림'),
+                contentPadding: EdgeInsets.zero),
+            SwitchListTile(
+                value: true,
+                onChanged: (_) {},
+                title: const Text('일정 알림'),
+                contentPadding: EdgeInsets.zero),
             const SizedBox(height: 16),
           ],
         ),

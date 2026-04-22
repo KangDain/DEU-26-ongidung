@@ -9,7 +9,8 @@ class SafetyTab extends StatefulWidget {
   State<SafetyTab> createState() => _SafetyTabState();
 }
 
-class _SafetyTabState extends State<SafetyTab> with SingleTickerProviderStateMixin {
+class _SafetyTabState extends State<SafetyTab>
+    with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   bool _motionDetected = false;
   bool _noResponseAlert = false;
@@ -19,7 +20,9 @@ class _SafetyTabState extends State<SafetyTab> with SingleTickerProviderStateMix
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+    _pulseController =
+        AnimationController(vsync: this, duration: const Duration(seconds: 2))
+          ..repeat();
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted) setState(() => _lastActivityMinutes++);
     });
@@ -34,7 +37,8 @@ class _SafetyTabState extends State<SafetyTab> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    final isSafe = !_motionDetected && !_noResponseAlert && _lastActivityMinutes < 30;
+    final isSafe =
+        !_motionDetected && !_noResponseAlert && _lastActivityMinutes < 30;
     return Scaffold(
       appBar: AppBar(
         title: const Text('실시간 안전 모니터링'),
@@ -84,20 +88,26 @@ class _SafetyTabState extends State<SafetyTab> with SingleTickerProviderStateMix
                   color: isSafe ? Colors.green : Colors.red,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(isSafe ? Icons.shield : Icons.warning, color: Colors.white, size: 44),
+                child: Icon(isSafe ? Icons.shield : Icons.warning,
+                    color: Colors.white, size: 44),
               ),
             ),
             const SizedBox(height: 16),
             Text(
               isSafe ? '현재 안전' : '주의 필요',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: isSafe ? Colors.green.shade700 : Colors.red.shade700),
+              style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: isSafe ? Colors.green.shade700 : Colors.red.shade700),
             ),
             Text(
               isSafe ? '모든 센서가 정상 작동 중입니다' : '이상 징후가 감지되었습니다',
-              style: TextStyle(color: isSafe ? Colors.green.shade600 : Colors.red.shade600),
+              style: TextStyle(
+                  color: isSafe ? Colors.green.shade600 : Colors.red.shade600),
             ),
             const SizedBox(height: 8),
-            Text('마지막 활동: $_lastActivityMinutes분 전', style: const TextStyle(color: Colors.grey)),
+            Text('마지막 활동: $_lastActivityMinutes분 전',
+                style: const TextStyle(color: Colors.grey)),
           ],
         ),
       ),
@@ -116,22 +126,27 @@ class _SafetyTabState extends State<SafetyTab> with SingleTickerProviderStateMix
               children: [
                 Icon(Icons.personal_injury, color: Colors.orange.shade600),
                 const SizedBox(width: 8),
-                const Text('움직임 감지 (아동 위험 감지)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const Text('움직임 감지 (아동 위험 감지)',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 const Spacer(),
                 Switch(
                   value: _motionDetected,
                   onChanged: (v) => setState(() => _motionDetected = v),
-                  activeColor: Colors.orange,
+                  activeThumbColor: Colors.orange,
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            const Text('아동의 위험 구역 이탈 또는 위험 움직임을 감지합니다.', style: TextStyle(color: Colors.grey)),
+            const Text('아동의 위험 구역 이탈 또는 위험 움직임을 감지합니다.',
+                style: TextStyle(color: Colors.grey)),
             if (_motionDetected)
               Container(
                 margin: const EdgeInsets.only(top: 8),
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8)),
                 child: const Row(
                   children: [
                     Icon(Icons.warning_amber, color: Colors.orange),
@@ -158,24 +173,30 @@ class _SafetyTabState extends State<SafetyTab> with SingleTickerProviderStateMix
               children: [
                 Icon(Icons.elderly, color: Colors.blue.shade600),
                 const SizedBox(width: 8),
-                const Text('무응답 감지 (독거노인)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const Text('무응답 감지 (독거노인)',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 const Spacer(),
                 Switch(
                   value: _noResponseAlert,
                   onChanged: (v) => setState(() => _noResponseAlert = v),
-                  activeColor: Colors.red,
+                  activeThumbColor: Colors.red,
                 ),
               ],
             ),
             const SizedBox(height: 8),
-            const Text('일정 시간 이상 움직임이 없을 경우 보호자에게 알림을 전송합니다.', style: TextStyle(color: Colors.grey)),
+            const Text('일정 시간 이상 움직임이 없을 경우 보호자에게 알림을 전송합니다.',
+                style: TextStyle(color: Colors.grey)),
             const SizedBox(height: 8),
             Row(
               children: [
                 const Text('무응답 감지 기준: '),
                 DropdownButton<int>(
                   value: 30,
-                  items: [15, 30, 60, 120].map((v) => DropdownMenuItem(value: v, child: Text('$v분'))).toList(),
+                  items: [15, 30, 60, 120]
+                      .map(
+                          (v) => DropdownMenuItem(value: v, child: Text('$v분')))
+                      .toList(),
                   onChanged: (_) {},
                 ),
               ],
@@ -200,20 +221,25 @@ class _SafetyTabState extends State<SafetyTab> with SingleTickerProviderStateMix
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('오늘의 활동 기록', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const Text('오늘의 활동 기록',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             const SizedBox(height: 12),
             ...events.map((e) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                children: [
-                  Text(e.$1, style: const TextStyle(color: Colors.grey, fontSize: 13, fontFamily: 'monospace')),
-                  const SizedBox(width: 12),
-                  Icon(e.$3, size: 18, color: e.$4),
-                  const SizedBox(width: 8),
-                  Text(e.$2),
-                ],
-              ),
-            )),
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      Text(e.$1,
+                          style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 13,
+                              fontFamily: 'monospace')),
+                      const SizedBox(width: 12),
+                      Icon(e.$3, size: 18, color: e.$4),
+                      const SizedBox(width: 8),
+                      Text(e.$2),
+                    ],
+                  ),
+                )),
           ],
         ),
       ),
@@ -225,14 +251,17 @@ class _SafetyTabState extends State<SafetyTab> with SingleTickerProviderStateMix
       width: double.infinity,
       height: 60,
       child: ElevatedButton.icon(
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmergencyScreen())),
+        onPressed: () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const EmergencyScreen())),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.red,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         icon: const Icon(Icons.sos, size: 28),
-        label: const Text('긴급 호출', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        label: const Text('긴급 호출',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
       ),
     );
   }
