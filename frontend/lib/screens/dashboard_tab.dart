@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/app_state.dart';
+import '../services/api_service.dart';
 import 'emergency_screen.dart';
 import 'health_tab.dart';
 import 'location_screen.dart';
@@ -15,6 +16,22 @@ class DashboardTab extends StatefulWidget {
 
 class _DashboardTabState extends State<DashboardTab> {
   final state = AppState.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboard();
+  }
+
+  Future<void> _loadDashboard() async {
+    final userId = state.currentUserId;
+    if (userId == null) return;
+    final result = await ApiService.getDashboard(userId);
+    if (!mounted) return;
+    if (result.data != null) {
+      setState(() => state.applyDashboard(result.data!));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,30 +69,46 @@ class _DashboardTabState extends State<DashboardTab> {
                           children: [
                             Text(
                               '안녕하세요, ${user?.name ?? "사용자"}님',
-                              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold),
                             ),
                             GestureDetector(
-                              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+                              onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          const NotificationsScreen())),
                               child: Badge(
                                 label: Text('${state.unreadNotifications}'),
                                 isLabelVisible: state.unreadNotifications > 0,
-                                child: const Icon(Icons.notifications, color: Colors.white),
+                                child: const Icon(Icons.notifications,
+                                    color: Colors.white),
                               ),
                             ),
                           ],
                         ),
                         Text(
                           user?.userTypeLabel ?? '',
-                          style: TextStyle(color: Colors.blue.shade100, fontSize: 13),
+                          style: TextStyle(
+                              color: Colors.blue.shade100, fontSize: 13),
                         ),
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            _statusChip(Icons.shield, state.safetyStatus, Colors.green),
+                            _statusChip(
+                                Icons.shield, state.safetyStatus, Colors.green),
                             const SizedBox(width: 8),
-                            _statusChip(Icons.medication, '약 $takenCount/$totalMeds', takenCount == totalMeds ? Colors.green : Colors.orange),
+                            _statusChip(
+                                Icons.medication,
+                                '약 $takenCount/$totalMeds',
+                                takenCount == totalMeds
+                                    ? Colors.green
+                                    : Colors.orange),
                             const SizedBox(width: 8),
-                            _statusChip(Icons.directions_walk, '활동 정상', Colors.blue.shade300),
+                            _statusChip(Icons.directions_walk, '활동 정상',
+                                Colors.blue.shade300),
                           ],
                         ),
                       ],
@@ -129,55 +162,138 @@ class _DashboardTabState extends State<DashboardTab> {
         children: [
           Icon(icon, size: 14, color: Colors.white),
           const SizedBox(width: 4),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+          Text(label,
+              style: const TextStyle(color: Colors.white, fontSize: 12)),
         ],
       ),
     );
   }
 
   Widget _sectionTitle(String title) {
-    return Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold));
+    return Text(title,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold));
   }
 
   Widget _todaySummaryCard() {
+    final summaryLines = state.careSummary;
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
-          children: state.todayMedications.map((med) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              children: [
-                Icon(med.isTaken ? Icons.check_circle : Icons.radio_button_unchecked,
-                  color: med.isTaken ? Colors.green : Colors.grey),
-                const SizedBox(width: 12),
-                Expanded(child: Text(med.name, style: TextStyle(
-                  decoration: med.isTaken ? TextDecoration.lineThrough : null,
-                  color: med.isTaken ? Colors.grey : Colors.black,
-                ))),
-                Text(med.time, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                const SizedBox(width: 8),
-                if (!med.isTaken) TextButton(
-                  onPressed: () => setState(() => med.isTaken = true),
-                  child: const Text('복용완료'),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (summaryLines.isNotEmpty) ...[
+              ...summaryLines.map(
+                (line) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.circle, size: 8,
+                          color: Colors.blue.shade400),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(line,
+                            style: TextStyle(
+                                color: Colors.grey.shade700, fontSize: 13)),
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-          )).toList(),
+              ),
+              const Divider(height: 20),
+            ],
+            if (state.todayMedications.isEmpty)
+              Text('오늘 일정이 없습니다.',
+                  style: TextStyle(color: Colors.grey.shade500))
+            else
+              ...state.todayMedications.map(
+                (med) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Icon(
+                          med.isTaken
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          color: med.isTaken ? Colors.green : Colors.grey),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: Text(med.name,
+                              style: TextStyle(
+                                decoration: med.isTaken
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                                color: med.isTaken
+                                    ? Colors.grey
+                                    : Colors.black,
+                              ))),
+                      Text(med.time,
+                          style: const TextStyle(
+                              color: Colors.grey, fontSize: 13)),
+                      const SizedBox(width: 8),
+                      if (!med.isTaken)
+                        TextButton(
+                          onPressed: () => _completeMedication(med),
+                          child: const Text('복용완료'),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
   }
 
+  Future<void> _completeMedication(dynamic med) async {
+    setState(() => med.isTaken = true);
+    final routineId = med.routineId;
+    if (routineId is int) {
+      await ApiService.completeRoutine(routineId);
+    }
+  }
+
   Widget _quickActions() {
     final actions = [
-      (Icons.sos, '긴급 호출', Colors.red, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EmergencyScreen()))),
+      (
+        Icons.sos,
+        '긴급 호출',
+        Colors.red,
+        () => Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const EmergencyScreen()))
+      ),
       (Icons.contact_phone, '보호자 연락', Colors.orange, () {}),
-      (Icons.favorite, '건강 체크', Colors.pink, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HealthTab()))),
-      (Icons.location_on, '위치 확인', Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LocationScreen()))),
-      (Icons.games, '게임 시작', Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const GamesScreen()))),
-      (Icons.notifications_active, '알림 확인', Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()))),
+      (
+        Icons.favorite,
+        '건강 체크',
+        Colors.pink,
+        () => Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const HealthTab()))
+      ),
+      (
+        Icons.location_on,
+        '위치 확인',
+        Colors.blue,
+        () => Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const LocationScreen()))
+      ),
+      (
+        Icons.games,
+        '게임 시작',
+        Colors.purple,
+        () => Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const GamesScreen()))
+      ),
+      (
+        Icons.notifications_active,
+        '알림 확인',
+        Colors.teal,
+        () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const NotificationsScreen()))
+      ),
     ];
     return GridView.count(
       crossAxisCount: 3,
@@ -186,25 +302,33 @@ class _DashboardTabState extends State<DashboardTab> {
       crossAxisSpacing: 10,
       mainAxisSpacing: 10,
       childAspectRatio: 1.1,
-      children: actions.map((a) => GestureDetector(
-        onTap: a.$4,
-        child: Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(color: a.$3.withOpacity(0.1), shape: BoxShape.circle),
-                child: Icon(a.$1, color: a.$3, size: 28),
-              ),
-              const SizedBox(height: 6),
-              Text(a.$2, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
-            ],
-          ),
-        ),
-      )).toList(),
+      children: actions
+          .map((a) => GestureDetector(
+                onTap: a.$4,
+                child: Card(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                            color: a.$3.withOpacity(0.1),
+                            shape: BoxShape.circle),
+                        child: Icon(a.$1, color: a.$3, size: 28),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(a.$2,
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w500),
+                          textAlign: TextAlign.center),
+                    ],
+                  ),
+                ),
+              ))
+          .toList(),
     );
   }
 
@@ -212,28 +336,45 @@ class _DashboardTabState extends State<DashboardTab> {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Column(
-        children: state.devices.map((d) => ListTile(
-          leading: Icon(
-            d.type == 'wearable' ? Icons.watch : d.type == 'fall_sensor' ? Icons.personal_injury :
-            d.type == 'door_sensor' ? Icons.door_front_door : d.type == 'heart_rate' ? Icons.monitor_heart : Icons.gps_fixed,
-            color: d.isConnected ? Colors.blue.shade600 : Colors.grey,
-          ),
-          title: Text(d.name),
-          subtitle: Text(d.isConnected ? '연결됨' : '연결 끊김', style: TextStyle(color: d.isConnected ? Colors.green : Colors.red)),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.battery_full, size: 16, color: d.batteryLevel > 50 ? Colors.green : Colors.orange),
-              Text('${d.batteryLevel}%', style: const TextStyle(fontSize: 12)),
-            ],
-          ),
-        )).toList(),
+        children: state.devices
+            .map((d) => ListTile(
+                  leading: Icon(
+                    d.type == 'wearable'
+                        ? Icons.watch
+                        : d.type == 'fall_sensor'
+                            ? Icons.personal_injury
+                            : d.type == 'door_sensor'
+                                ? Icons.door_front_door
+                                : d.type == 'heart_rate'
+                                    ? Icons.monitor_heart
+                                    : Icons.gps_fixed,
+                    color: d.isConnected ? Colors.blue.shade600 : Colors.grey,
+                  ),
+                  title: Text(d.name),
+                  subtitle: Text(d.isConnected ? '연결됨' : '연결 끊김',
+                      style: TextStyle(
+                          color: d.isConnected ? Colors.green : Colors.red)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.battery_full,
+                          size: 16,
+                          color: d.batteryLevel > 50
+                              ? Colors.green
+                              : Colors.orange),
+                      Text('${d.batteryLevel}%',
+                          style: const TextStyle(fontSize: 12)),
+                    ],
+                  ),
+                ))
+            .toList(),
       ),
     );
   }
 
   Widget _healthSummaryCard() {
-    final latest = state.recentHealthData.isNotEmpty ? state.recentHealthData.first : null;
+    final latest =
+        state.recentHealthData.isNotEmpty ? state.recentHealthData.first : null;
     if (latest == null) return const SizedBox();
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -242,8 +383,10 @@ class _DashboardTabState extends State<DashboardTab> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _healthStat(Icons.monitor_heart, '심박수', '${latest.heartRate} bpm', Colors.red),
-            _healthStat(Icons.directions_walk, '걸음 수', '${latest.steps} 보', Colors.blue),
+            _healthStat(Icons.monitor_heart, '심박수', '${latest.heartRate} bpm',
+                Colors.red),
+            _healthStat(Icons.directions_walk, '걸음 수', '${latest.steps} 보',
+                Colors.blue),
             _healthStat(Icons.shield, '상태', latest.status ?? '-', Colors.green),
           ],
         ),
@@ -256,7 +399,8 @@ class _DashboardTabState extends State<DashboardTab> {
       children: [
         Icon(icon, color: color, size: 28),
         const SizedBox(height: 4),
-        Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
+        Text(value,
+            style: TextStyle(fontWeight: FontWeight.bold, color: color)),
         Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
       ],
     );
