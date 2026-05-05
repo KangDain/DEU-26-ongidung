@@ -133,7 +133,7 @@ class _SafetyTabState extends State<SafetyTab>
                 Switch(
                   value: _motionDetected,
                   onChanged: (v) => setState(() => _motionDetected = v),
-                  activeThumbColor: Colors.orange,
+                  activeColor: Colors.orange,
                 ),
               ],
             ),
@@ -180,7 +180,7 @@ class _SafetyTabState extends State<SafetyTab>
                 Switch(
                   value: _noResponseAlert,
                   onChanged: (v) => setState(() => _noResponseAlert = v),
-                  activeThumbColor: Colors.red,
+                  activeColor: Colors.red,
                 ),
               ],
             ),

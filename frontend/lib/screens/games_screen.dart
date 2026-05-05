@@ -113,7 +113,7 @@ class _GamesScreenState extends State<GamesScreen> {
         leading: Container(
           width: 44,
           height: 44,
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+          decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
           child: Icon(icon, color: color),
         ),
         title: Text(title, style: TextStyle(fontWeight: FontWeight.bold, decoration: done ? TextDecoration.lineThrough : null, color: done ? Colors.grey : null)),
@@ -143,7 +143,7 @@ class _GamesScreenState extends State<GamesScreen> {
               Container(
                 width: 56,
                 height: 56,
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
                 child: Icon(icon, color: color, size: 32),
               ),
               const SizedBox(width: 16),

@@ -120,9 +120,9 @@ class _DashboardTabState extends State<DashboardTab> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.2),
+        color: color.withOpacity(0.2),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.5)),
+        border: Border.all(color: color.withOpacity(0.5)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -196,7 +196,7 @@ class _DashboardTabState extends State<DashboardTab> {
               Container(
                 width: 48,
                 height: 48,
-                decoration: BoxDecoration(color: a.$3.withValues(alpha: 0.1), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: a.$3.withOpacity(0.1), shape: BoxShape.circle),
                 child: Icon(a.$1, color: a.$3, size: 28),
               ),
               const SizedBox(height: 6),

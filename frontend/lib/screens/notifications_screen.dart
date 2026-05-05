@@ -91,7 +91,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: _typeColor(type).withValues(alpha: 0.1),
+                  color: _typeColor(type).withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(_typeIcon(type), color: _typeColor(type)),

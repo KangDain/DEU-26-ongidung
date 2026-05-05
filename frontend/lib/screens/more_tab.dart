@@ -115,7 +115,7 @@ class MoreTab extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: (color ?? Colors.blue.shade600).withValues(alpha: 0.1),
+          color: (color ?? Colors.blue.shade600).withOpacity(0.1),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: color ?? Colors.blue.shade600, size: 22),
