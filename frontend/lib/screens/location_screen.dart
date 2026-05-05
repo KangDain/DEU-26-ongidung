@@ -264,7 +264,7 @@ class _LocationScreenState extends State<LocationScreen> {
                         const Spacer(),
                         Text(
                           _lastUpdate != null
-                              ? '${_formatTime(_lastUpdate!)}'
+                              ? _formatTime(_lastUpdate!)
                               : '-',
                           style: TextStyle(
                               color: Colors.grey.shade600, fontSize: 12),

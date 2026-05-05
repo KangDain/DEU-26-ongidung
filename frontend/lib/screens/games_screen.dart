@@ -107,6 +107,7 @@ class _GamesScreenState extends State<GamesScreen> {
             Colors.indigo,
             '최대 40 pts',
             () async {
+              final messenger = ScaffoldMessenger.of(context);
               final pts = await Navigator.push<int>(
                 context,
                 MaterialPageRoute(builder: (_) => const HealthQuizGame()),
@@ -114,7 +115,7 @@ class _GamesScreenState extends State<GamesScreen> {
               if (!mounted) return;
               if (pts != null && pts > 0) {
                 setState(() => _totalPoints += pts);
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   SnackBar(
                     content: Text('+$pts 포인트 획득!'),
                     backgroundColor: Colors.green,
@@ -130,6 +131,7 @@ class _GamesScreenState extends State<GamesScreen> {
             Colors.red,
             '최대 30 pts',
             () async {
+              final messenger = ScaffoldMessenger.of(context);
               final pts = await Navigator.push<int>(
                 context,
                 MaterialPageRoute(builder: (_) => const SafetyQuizGame()),
@@ -137,7 +139,7 @@ class _GamesScreenState extends State<GamesScreen> {
               if (!mounted) return;
               if (pts != null && pts > 0) {
                 setState(() => _totalPoints += pts);
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   SnackBar(
                     content: Text('+$pts 포인트 획득!'),
                     backgroundColor: Colors.green,
@@ -153,6 +155,7 @@ class _GamesScreenState extends State<GamesScreen> {
             Colors.purple,
             '최대 40 pts',
             () async {
+              final messenger = ScaffoldMessenger.of(context);
               final pts = await Navigator.push<int>(
                 context,
                 MaterialPageRoute(builder: (_) => const MemoryCardGame()),
@@ -160,7 +163,7 @@ class _GamesScreenState extends State<GamesScreen> {
               if (!mounted) return;
               if (pts != null && pts > 0) {
                 setState(() => _totalPoints += pts);
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   SnackBar(
                     content: Text('+$pts 포인트 획득!'),
                     backgroundColor: Colors.green,
