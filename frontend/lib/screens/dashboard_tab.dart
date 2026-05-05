@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/app_state.dart';
 import '../services/api_service.dart';
 import 'emergency_screen.dart';
@@ -135,10 +136,6 @@ class _DashboardTabState extends State<DashboardTab> {
                   _sectionTitle('IoT 기기 상태'),
                   const SizedBox(height: 8),
                   _deviceStatusCard(),
-                  const SizedBox(height: 20),
-                  _sectionTitle('최근 건강 데이터'),
-                  const SizedBox(height: 8),
-                  _healthSummaryCard(),
                   const SizedBox(height: 80),
                 ],
               ),
@@ -248,6 +245,68 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
+  void _callGuardian() {
+    final user = state.currentUser;
+    final contacts = user?.emergencyContacts ?? [];
+    final guardianPhone = user?.guardianPhone ?? '';
+
+    if (contacts.isEmpty && guardianPhone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('등록된 보호자 연락처가 없습니다.')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('보호자에게 연락',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            if (contacts.isNotEmpty)
+              ...contacts.map((c) => ListTile(
+                    leading: const Icon(Icons.person, color: Colors.blue),
+                    title: Text('${c.name} (${c.relation})'),
+                    subtitle: Text(c.phone),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.phone, color: Colors.green),
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        final cleaned =
+                            c.phone.replaceAll(RegExp(r'[^0-9+]'), '');
+                        await launchUrl(Uri.parse('tel:$cleaned'));
+                      },
+                    ),
+                  ))
+            else if (guardianPhone.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.person, color: Colors.blue),
+                title: const Text('보호자'),
+                subtitle: Text(guardianPhone),
+                trailing: IconButton(
+                  icon: const Icon(Icons.phone, color: Colors.green),
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    final cleaned =
+                        guardianPhone.replaceAll(RegExp(r'[^0-9+]'), '');
+                    await launchUrl(Uri.parse('tel:$cleaned'));
+                  },
+                ),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _completeMedication(dynamic med) async {
     setState(() => med.isTaken = true);
     final routineId = med.routineId;
@@ -265,7 +324,7 @@ class _DashboardTabState extends State<DashboardTab> {
         () => Navigator.push(
             context, MaterialPageRoute(builder: (_) => const EmergencyScreen()))
       ),
-      (Icons.contact_phone, '보호자 연락', Colors.orange, () {}),
+      (Icons.contact_phone, '보호자 연락', Colors.orange, _callGuardian),
       (
         Icons.favorite,
         '건강 체크',
@@ -372,37 +431,4 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
-  Widget _healthSummaryCard() {
-    final latest =
-        state.recentHealthData.isNotEmpty ? state.recentHealthData.first : null;
-    if (latest == null) return const SizedBox();
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _healthStat(Icons.monitor_heart, '심박수', '${latest.heartRate} bpm',
-                Colors.red),
-            _healthStat(Icons.directions_walk, '걸음 수', '${latest.steps} 보',
-                Colors.blue),
-            _healthStat(Icons.shield, '상태', latest.status ?? '-', Colors.green),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _healthStat(IconData icon, String label, String value, Color color) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 4),
-        Text(value,
-            style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-      ],
-    );
-  }
 }

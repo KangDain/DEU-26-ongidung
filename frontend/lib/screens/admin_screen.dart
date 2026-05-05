@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -53,12 +54,56 @@ class _AdminScreenState extends State<AdminScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _loadUsers();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUsers() async {
+    final result = await ApiService.getAdminUsers();
+    if (!mounted || result.data == null) return;
+    setState(() {
+      _users
+        ..clear()
+        ..addAll(result.data!.map(_userFromApi));
+    });
+  }
+
+  Map<String, dynamic> _userFromApi(Map<String, dynamic> user) {
+    final status = user['user_is_deleted'] == true
+        ? '삭제'
+        : user['status'] == 'DISABLED'
+            ? '비활성'
+            : user['approved'] == false
+                ? '대기'
+                : '활성';
+    return {
+      'user_id': user['user_id'],
+      'name': user['user_name'] ?? user['login_id'] ?? '사용자',
+      'type': _typeLabel(user['user_type'] as String?),
+      'status': status,
+      'lastLogin': user['user_updated_at'] ?? user['user_created_at'] ?? '-',
+      'approved': user['approved'] == true,
+    };
+  }
+
+  String _typeLabel(String? type) {
+    switch (type) {
+      case 'ELDERLY':
+        return '독거노인';
+      case 'CHILD':
+        return '아동';
+      case 'GUARDIAN':
+        return '보호자';
+      case 'ADMIN':
+        return '관리자';
+      default:
+        return '일반';
+    }
   }
 
   @override
@@ -87,7 +132,7 @@ class _AdminScreenState extends State<AdminScreen>
         children: [
           _UserManagementView(users: _users, onUpdate: () => setState(() {})),
           _DeviceManagementView(),
-          _DataManagementView(),
+          const _DataManagementView(),
           _ApprovalView(
               users: _users.where((u) => !u['approved']).toList(),
               onApprove: (u) {
@@ -218,9 +263,15 @@ class _UserManagementView extends StatelessWidget {
   }
 
   void _handleUserAction(
-      BuildContext context, String action, Map<String, dynamic> user) {
+      BuildContext context, String action, Map<String, dynamic> user) async {
+    final userId = user['user_id'] is int ? user['user_id'] as int : null;
     if (action == 'toggle') {
       user['status'] = user['status'] == '활성' ? '비활성' : '활성';
+      if (userId != null && user['status'] == '비활성') {
+        await ApiService.adminDeactivateUser(userId);
+      } else if (userId != null) {
+        await ApiService.adminApproveUser(userId);
+      }
       onUpdate();
     } else if (action == 'delete') {
       showDialog(
@@ -233,7 +284,11 @@ class _UserManagementView extends StatelessWidget {
                 onPressed: () => Navigator.pop(context),
                 child: const Text('취소')),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
+                if (userId != null) {
+                  await ApiService.adminDeleteUser(userId);
+                }
+                if (!context.mounted) return;
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('${user['name']}이(가) 삭제되었습니다.')));

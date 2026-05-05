@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/app_state.dart';
 import '../models/user_model.dart';
+import '../services/api_service.dart';
 import 'location_screen.dart';
 
 class GuardianTab extends StatefulWidget {
@@ -12,6 +13,59 @@ class GuardianTab extends StatefulWidget {
 
 class _GuardianTabState extends State<GuardianTab> {
   final state = AppState.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecipients();
+  }
+
+  Future<void> _loadRecipients() async {
+    final user = state.currentUser;
+    if (user?.userType != UserType.guardian || user?.userId == null) return;
+    final result = await ApiService.getGuardianRecipients(user!.userId!);
+    if (!mounted || result.data == null) return;
+    setState(() {
+      state.guardianUsers
+        ..clear()
+        ..addAll(result.data!.map(_recipientFromApi));
+    });
+  }
+
+  Map<String, dynamic> _recipientFromApi(Map<String, dynamic> row) {
+    final recipient = row['recipient'] is Map
+        ? Map<String, dynamic>.from(row['recipient'] as Map)
+        : <String, dynamic>{};
+    final dashboard = row['dashboard'] is Map
+        ? Map<String, dynamic>.from(row['dashboard'] as Map)
+        : <String, dynamic>{};
+    return {
+      'user_id': recipient['user_id'],
+      'name': recipient['user_name'] ?? '보호 대상자',
+      'type': _typeLabel(recipient['user_type'] as String?),
+      'status': dashboard['safety_status'] ?? '안전',
+      'lastUpdate': '방금 전',
+      'heartRate': 72,
+      'steps': 2340,
+      'location':
+          dashboard['location_status'] ?? recipient['user_address'] ?? '-',
+      'hasAlert':
+          (dashboard['notification_status'] as String? ?? '').contains('읽지 않은'),
+    };
+  }
+
+  String _typeLabel(String? type) {
+    switch (type) {
+      case 'ELDERLY':
+        return '독거노인';
+      case 'CHILD':
+        return '아동';
+      case 'GUARDIAN':
+        return '보호자';
+      default:
+        return '일반 사용자';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,8 +106,10 @@ class _GuardianTabState extends State<GuardianTab> {
               Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: hasAlert ? Colors.red.shade100 : Colors.blue.shade100,
-                    child: Icon(Icons.person, color: hasAlert ? Colors.red : Colors.blue.shade700),
+                    backgroundColor:
+                        hasAlert ? Colors.red.shade100 : Colors.blue.shade100,
+                    child: Icon(Icons.person,
+                        color: hasAlert ? Colors.red : Colors.blue.shade700),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -62,17 +118,22 @@ class _GuardianTabState extends State<GuardianTab> {
                       children: [
                         Row(
                           children: [
-                            Text(user['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            Text(user['name'],
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 16)),
                             const SizedBox(width: 8),
                             Chip(
-                              label: Text(user['type'], style: const TextStyle(fontSize: 11)),
+                              label: Text(user['type'],
+                                  style: const TextStyle(fontSize: 11)),
                               padding: EdgeInsets.zero,
                               visualDensity: VisualDensity.compact,
                             ),
                             if (hasAlert) ...[
                               const SizedBox(width: 8),
                               const Chip(
-                                label: Text('주의', style: TextStyle(color: Colors.red, fontSize: 11)),
+                                label: Text('주의',
+                                    style: TextStyle(
+                                        color: Colors.red, fontSize: 11)),
                                 backgroundColor: Color(0xFFFFEBEE),
                                 padding: EdgeInsets.zero,
                                 visualDensity: VisualDensity.compact,
@@ -80,20 +141,31 @@ class _GuardianTabState extends State<GuardianTab> {
                             ],
                           ],
                         ),
-                        Text('마지막 업데이트: ${user['lastUpdate']}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                        Text('마지막 업데이트: ${user['lastUpdate']}',
+                            style: const TextStyle(
+                                color: Colors.grey, fontSize: 12)),
                       ],
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: user['status'] == '안전' ? Colors.green.shade100 : user['status'] == '주의' ? Colors.red.shade100 : Colors.blue.shade100,
+                      color: user['status'] == '안전'
+                          ? Colors.green.shade100
+                          : user['status'] == '주의'
+                              ? Colors.red.shade100
+                              : Colors.blue.shade100,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       user['status'],
                       style: TextStyle(
-                        color: user['status'] == '안전' ? Colors.green.shade700 : user['status'] == '주의' ? Colors.red.shade700 : Colors.blue.shade700,
+                        color: user['status'] == '안전'
+                            ? Colors.green.shade700
+                            : user['status'] == '주의'
+                                ? Colors.red.shade700
+                                : Colors.blue.shade700,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -104,29 +176,40 @@ class _GuardianTabState extends State<GuardianTab> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _statChip(Icons.monitor_heart, '${user['heartRate']} bpm', Colors.red),
-                  _statChip(Icons.directions_walk, '${user['steps']} 보', Colors.blue),
+                  _statChip(Icons.monitor_heart, '${user['heartRate']} bpm',
+                      Colors.red),
+                  _statChip(
+                      Icons.directions_walk, '${user['steps']} 보', Colors.blue),
                   _statChip(Icons.location_on, user['location'], Colors.green),
                 ],
               ),
               const SizedBox(height: 12),
               Row(
                 children: [
-                  Expanded(child: OutlinedButton.icon(
-                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LocationScreen())),
+                  Expanded(
+                      child: OutlinedButton.icon(
+                    onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const LocationScreen())),
                     icon: const Icon(Icons.location_on, size: 16),
                     label: const Text('위치'),
                   )),
                   const SizedBox(width: 8),
-                  Expanded(child: OutlinedButton.icon(
-                    onPressed: () => _sendMessage(user['name']),
+                  Expanded(
+                      child: OutlinedButton.icon(
+                    onPressed: () => _sendMessage(user['name'],
+                        receiverId: user['user_id'] as int?),
                     icon: const Icon(Icons.message, size: 16),
                     label: const Text('메시지'),
                   )),
                   const SizedBox(width: 8),
-                  Expanded(child: ElevatedButton.icon(
+                  Expanded(
+                      child: ElevatedButton.icon(
                     onPressed: () {},
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade600, foregroundColor: Colors.white),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue.shade600,
+                        foregroundColor: Colors.white),
                     icon: const Icon(Icons.phone, size: 16),
                     label: const Text('통화'),
                   )),
@@ -155,42 +238,54 @@ class _GuardianTabState extends State<GuardianTab> {
       padding: const EdgeInsets.all(16),
       children: [
         Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('연결된 보호자', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Text('연결된 보호자',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 12),
                 ...?state.currentUser?.emergencyContacts.map((c) => ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.blue.shade100,
-                    child: Text('${c.priority}', style: TextStyle(color: Colors.blue.shade700, fontWeight: FontWeight.bold)),
-                  ),
-                  title: Text(c.name),
-                  subtitle: Text(c.phone),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(icon: const Icon(Icons.message), onPressed: () => _sendMessage(c.name)),
-                      IconButton(icon: const Icon(Icons.phone), onPressed: () {}),
-                    ],
-                  ),
-                )),
+                      leading: CircleAvatar(
+                        backgroundColor: Colors.blue.shade100,
+                        child: Text('${c.priority}',
+                            style: TextStyle(
+                                color: Colors.blue.shade700,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                      title: Text(c.name),
+                      subtitle: Text(c.phone),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                              icon: const Icon(Icons.message),
+                              onPressed: () => _sendMessage(c.name)),
+                          IconButton(
+                              icon: const Icon(Icons.phone), onPressed: () {}),
+                        ],
+                      ),
+                    )),
               ],
             ),
           ),
         ),
         const SizedBox(height: 16),
         Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('공유 설정', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Text('공유 설정',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 8),
                 _shareSwitch('위치 정보 공유', true),
                 _shareSwitch('건강 데이터 공유', true),
@@ -224,7 +319,8 @@ class _GuardianTabState extends State<GuardianTab> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.7,
@@ -232,7 +328,10 @@ class _GuardianTabState extends State<GuardianTab> {
           controller: ctrl,
           padding: const EdgeInsets.all(24),
           children: [
-            Center(child: Text(user['name'], style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
+            Center(
+                child: Text(user['name'],
+                    style: const TextStyle(
+                        fontSize: 24, fontWeight: FontWeight.bold))),
             const SizedBox(height: 20),
             _detailRow('상태', user['status']),
             _detailRow('심박수', '${user['heartRate']} bpm'),
@@ -240,11 +339,21 @@ class _GuardianTabState extends State<GuardianTab> {
             _detailRow('위치', user['location']),
             _detailRow('마지막 업데이트', user['lastUpdate']),
             const SizedBox(height: 20),
-            const Text('오늘의 활동 일정', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text('오늘의 활동 일정',
+                style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            const ListTile(leading: Icon(Icons.check_circle, color: Colors.green), title: Text('아침 혈압약 복용'), subtitle: Text('08:00')),
-            const ListTile(leading: Icon(Icons.radio_button_unchecked), title: Text('점심 당뇨약 복용'), subtitle: Text('12:00')),
-            const ListTile(leading: Icon(Icons.radio_button_unchecked), title: Text('저녁 비타민 복용'), subtitle: Text('18:00')),
+            const ListTile(
+                leading: Icon(Icons.check_circle, color: Colors.green),
+                title: Text('아침 혈압약 복용'),
+                subtitle: Text('08:00')),
+            const ListTile(
+                leading: Icon(Icons.radio_button_unchecked),
+                title: Text('점심 당뇨약 복용'),
+                subtitle: Text('12:00')),
+            const ListTile(
+                leading: Icon(Icons.radio_button_unchecked),
+                title: Text('저녁 비타민 복용'),
+                subtitle: Text('18:00')),
           ],
         ),
       ),
@@ -256,26 +365,44 @@ class _GuardianTabState extends State<GuardianTab> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          SizedBox(width: 100, child: Text(label, style: const TextStyle(color: Colors.grey))),
+          SizedBox(
+              width: 100,
+              child: Text(label, style: const TextStyle(color: Colors.grey))),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
         ],
       ),
     );
   }
 
-  void _sendMessage(String name) {
+  void _sendMessage(String name, {int? receiverId}) {
     final ctrl = TextEditingController();
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text('$name에게 메시지'),
-        content: TextField(controller: ctrl, decoration: const InputDecoration(hintText: '메시지를 입력하세요'), maxLines: 3),
+        content: TextField(
+            controller: ctrl,
+            decoration: const InputDecoration(hintText: '메시지를 입력하세요'),
+            maxLines: 3),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: const Text('취소')),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name에게 메시지를 보냈습니다.')));
+            onPressed: () async {
+              final senderId = state.currentUserId;
+              if (senderId != null &&
+                  receiverId != null &&
+                  ctrl.text.isNotEmpty) {
+                await ApiService.sendMessage(
+                  senderId: senderId,
+                  receiverId: receiverId,
+                  body: ctrl.text,
+                );
+              }
+              if (!dialogContext.mounted) return;
+              Navigator.pop(dialogContext);
+              ScaffoldMessenger.of(dialogContext)
+                  .showSnackBar(SnackBar(content: Text('$name에게 메시지를 보냈습니다.')));
             },
             child: const Text('전송'),
           ),
@@ -300,11 +427,13 @@ class _GuardianTabState extends State<GuardianTab> {
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('취소')),
+          TextButton(
+              onPressed: () => Navigator.pop(context), child: const Text('취소')),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('보호자 추가 요청을 보냈습니다.')));
+              ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('보호자 추가 요청을 보냈습니다.')));
             },
             child: const Text('추가'),
           ),

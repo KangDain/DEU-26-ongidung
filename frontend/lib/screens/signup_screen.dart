@@ -69,7 +69,8 @@ class _SignupScreenState extends State<SignupScreen> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2),
                       )
                     : Text(_currentStep == 2 ? '가입 완료' : '다음'),
               ),
@@ -123,7 +124,8 @@ class _SignupScreenState extends State<SignupScreen> {
       children: [
         _field(_nameCtrl, '이름 *', Icons.person),
         const SizedBox(height: 12),
-        _field(_birthCtrl, '생년월일 (예: 1990-01-01)', Icons.cake, hint: 'YYYY-MM-DD'),
+        _field(_birthCtrl, '생년월일 (예: 1990-01-01)', Icons.cake,
+            hint: 'YYYY-MM-DD'),
         const SizedBox(height: 12),
         Row(
           children: [
@@ -169,7 +171,8 @@ class _SignupScreenState extends State<SignupScreen> {
                   title: Row(children: [
                     Icon(t.$3, color: Colors.blue.shade600),
                     const SizedBox(width: 8),
-                    Text(t.$2, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(t.$2,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                   ]),
                   subtitle: Text(t.$4),
                   activeColor: Colors.blue.shade600,
@@ -214,7 +217,8 @@ class _SignupScreenState extends State<SignupScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('입력 정보 확인', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('입력 정보 확인',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Text('이름: ${_nameCtrl.text}'),
               Text('연락처: ${_phoneCtrl.text}'),
@@ -254,7 +258,8 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
-  Widget _field(TextEditingController ctrl, String label, IconData icon, {String? hint}) {
+  Widget _field(TextEditingController ctrl, String label, IconData icon,
+      {String? hint}) {
     return TextField(
       controller: ctrl,
       decoration: InputDecoration(

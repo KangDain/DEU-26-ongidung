@@ -36,12 +36,23 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) => setState(() => _currentIndex = i),
         destinations: [
-          const NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: '홈'),
-          const NavigationDestination(icon: Icon(Icons.security_outlined), selectedIcon: Icon(Icons.security), label: '안전'),
-          const NavigationDestination(icon: Icon(Icons.favorite_outline), selectedIcon: Icon(Icons.favorite), label: '건강'),
+          const NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              selectedIcon: Icon(Icons.home),
+              label: '홈'),
+          const NavigationDestination(
+              icon: Icon(Icons.security_outlined),
+              selectedIcon: Icon(Icons.security),
+              label: '안전'),
+          const NavigationDestination(
+              icon: Icon(Icons.favorite_outline),
+              selectedIcon: Icon(Icons.favorite),
+              label: '건강'),
           NavigationDestination(
             icon: Badge(
-              isLabelVisible: isGuardian && AppState.instance.guardianUsers.any((u) => u['hasAlert'] == true),
+              isLabelVisible: isGuardian &&
+                  AppState.instance.guardianUsers
+                      .any((u) => u['hasAlert'] == true),
               child: const Icon(Icons.supervisor_account_outlined),
             ),
             selectedIcon: const Icon(Icons.supervisor_account),

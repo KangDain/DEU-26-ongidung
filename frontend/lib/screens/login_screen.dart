@@ -34,7 +34,8 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     setState(() => _isLoading = true);
 
-    final result = await ApiService.login(_idController.text, _pwController.text);
+    final result =
+        await ApiService.login(_idController.text, _pwController.text);
 
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -54,17 +55,29 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_pinDigits.length < 6) {
       setState(() => _pinDigits.add(digit));
       if (_pinDigits.length == 6) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          // PIN 로그인은 별도 검증 로직 필요 — 현재는 로컬 처리
-          AppState.instance.login('user', 'pin');
-          if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const HomeScreen()),
-            );
-          }
-        });
+        Future.delayed(const Duration(milliseconds: 300), _pinLogin);
       }
+    }
+  }
+
+  Future<void> _pinLogin() async {
+    if (_idController.text.isEmpty) {
+      _showSnack('PIN 로그인도 아이디가 필요합니다.', isError: true);
+      setState(() => _pinDigits.clear());
+      return;
+    }
+    final result =
+        await ApiService.pinLogin(_idController.text, _pinDigits.join());
+    if (!mounted) return;
+    if (result.data != null) {
+      AppState.instance.loginFromApi(result.data!);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
+      );
+    } else {
+      _showSnack(result.error ?? 'PIN 로그인 실패', isError: true);
+      setState(() => _pinDigits.clear());
     }
   }
 
@@ -166,8 +179,10 @@ class _LoginScreenState extends State<LoginScreen> {
             labelText: '비밀번호',
             prefixIcon: const Icon(Icons.lock),
             suffixIcon: IconButton(
-              icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              icon: Icon(
+                  _obscurePassword ? Icons.visibility_off : Icons.visibility),
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
             ),
             filled: true,
             fillColor: Colors.white,
@@ -194,23 +209,31 @@ class _LoginScreenState extends State<LoginScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.shade600,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             child: _isLoading
                 ? const SizedBox(
                     width: 24,
                     height: 24,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
                   )
-                : const Text('로그인', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                : const Text('로그인',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ),
         ),
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: _socialButton(Icons.message, '카카오 로그인', Colors.yellow.shade700)),
+            Expanded(
+                child: _socialButton(
+                    Icons.message, '카카오 로그인', Colors.yellow.shade700)),
             const SizedBox(width: 8),
-            Expanded(child: _socialButton(Icons.g_mobiledata, '구글 로그인', Colors.red.shade400)),
+            Expanded(
+                child: _socialButton(
+                    Icons.g_mobiledata, '구글 로그인', Colors.red.shade400)),
           ],
         ),
       ],
@@ -232,6 +255,17 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildPinPad() {
     return Column(
       children: [
+        TextField(
+          controller: _idController,
+          decoration: InputDecoration(
+            labelText: '아이디',
+            prefixIcon: const Icon(Icons.person),
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        const SizedBox(height: 20),
         const Text('PIN 번호 입력 (6자리)',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 20),
@@ -245,7 +279,9 @@ class _LoginScreenState extends State<LoginScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: i < _pinDigits.length ? Colors.blue.shade600 : Colors.grey.shade300,
+                color: i < _pinDigits.length
+                    ? Colors.blue.shade600
+                    : Colors.grey.shade300,
                 border: Border.all(color: Colors.blue.shade600),
               ),
             ),
@@ -276,11 +312,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: d.isEmpty
                               ? []
-                              : [const BoxShadow(color: Colors.black12, blurRadius: 4)],
+                              : [
+                                  const BoxShadow(
+                                      color: Colors.black12, blurRadius: 4)
+                                ],
                         ),
                         child: Center(
                           child: Text(d,
-                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                              style: const TextStyle(
+                                  fontSize: 24, fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ))
@@ -291,6 +331,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _showPasswordRecovery() {
+    final loginIdCtrl = TextEditingController();
+    final verificationCtrl = TextEditingController();
+    final newPasswordCtrl = TextEditingController();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -310,21 +353,49 @@ class _LoginScreenState extends State<LoginScreen> {
             const Text('비밀번호 찾기',
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            const TextField(
-              decoration: InputDecoration(
-                labelText: '등록된 휴대폰 번호',
-                prefixIcon: Icon(Icons.phone),
+            TextField(
+              controller: loginIdCtrl,
+              decoration: const InputDecoration(
+                labelText: '아이디',
+                prefixIcon: Icon(Icons.account_circle),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: verificationCtrl,
+              decoration: const InputDecoration(
+                labelText: '등록된 휴대폰 번호 또는 이메일',
+                prefixIcon: Icon(Icons.verified_user),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: newPasswordCtrl,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: '새 비밀번호',
+                prefixIcon: Icon(Icons.lock_reset),
               ),
             ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
+                  final result = await ApiService.resetPassword(
+                    loginId: loginIdCtrl.text,
+                    verification: verificationCtrl.text,
+                    newPassword: newPasswordCtrl.text,
+                  );
+                  if (!mounted) return;
                   Navigator.pop(context);
-                  _showSnack('인증번호가 발송되었습니다.');
+                  if (result.data != null) {
+                    _showSnack('비밀번호가 재설정되었습니다.');
+                  } else {
+                    _showSnack(result.error ?? '비밀번호 재설정 실패', isError: true);
+                  }
                 },
-                child: const Text('인증번호 받기'),
+                child: const Text('비밀번호 재설정'),
               ),
             ),
             const SizedBox(height: 24),
