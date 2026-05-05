@@ -1,32 +1,34 @@
-# ERD 테이블 파이썬 코드로 정의
-
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum, Time, BigInteger
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import relationship
 import enum
 from datetime import datetime
 from database import Base
 
-#모든 모델의 기본 클래스
-Base = declarative_base()
 
 class UserRole(enum.Enum):
     GUARDIAN = "GUARDIAN"     # 보호자
-    RECIPIENT = "RECIPIENT" # 보호 대상자
-    ADMIN = "ADMIN"         # 관리자
+    RECIPIENT = "RECIPIENT"   # 보호 대상자
+    ADMIN = "ADMIN"           # 관리자
+
 
 # ----- Users Table
 class User(Base):
     __tablename__ = "users"
-    
+
     user_id = Column(Integer, primary_key=True, autoincrement=True)
     login_id = Column(String(50), unique=True, nullable=False)
     user_pw = Column(String(255), nullable=False)
-    # 해시(암호화)해서 저장
     user_name = Column(String(50), nullable=False)
     user_phone = Column(String(20))
     user_role = Column(Enum(UserRole), nullable=False)
     user_created_at = Column(DateTime, default=datetime.utcnow)
     user_is_deleted = Column(Boolean, default=False)
+    # 추가 컬럼
+    user_birth_date = Column(String(20))               # 생년월일 (예: 1950-03-15)
+    user_address = Column(String(200))                 # 주소
+    guardian_phone = Column(String(20))                # 보호자 연락처
+    user_type = Column(String(20), default="GENERAL")  # ELDERLY / CHILD / GENERAL
+
 
 # ----- CareRelation Table
 class CareRelation(Base):
@@ -36,16 +38,18 @@ class CareRelation(Base):
     guardian_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
     recipient_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
 
+
 # ----- Device Table
 class Device(Base):
     __tablename__ = "devices"
 
     device_id = Column(Integer, primary_key=True, autoincrement=True)
     recipient_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
-    device_type = Column(String(20), nullable=False) # CAM, PIR, TEMP, DOOR 등
+    device_type = Column(String(20), nullable=False)  # CAM, PIR, TEMP, DOOR 등
     ip_address = Column(String(50))
     device_status = Column(Boolean, default=True)
     device_is_deleted = Column(Boolean, default=False)
+
 
 # ----- Sensor Table
 class SensorLog(Base):
@@ -53,9 +57,10 @@ class SensorLog(Base):
 
     sensor_log_id = Column(BigInteger, primary_key=True, autoincrement=True)
     device_id = Column(Integer, ForeignKey("devices.device_id"), nullable=False)
-    sensor_event_type = Column(String(50), nullable=False) 
+    sensor_event_type = Column(String(50), nullable=False)
     # MOTION_DETECTED, DOOR_OPEN 등
     sensor_created_at = Column(DateTime, default=datetime.utcnow)
+
 
 # ----- Alert Table
 class Alert(Base):
@@ -67,6 +72,7 @@ class Alert(Base):
     # NO_MOVEMENT, FALL_DOWN 등
     is_read = Column(Boolean, default=False)
     alert_created_at = Column(DateTime, default=datetime.utcnow)
+
 
 # ----- Routine Table
 class Routine(Base):

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
+import '../services/api_service.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -11,6 +12,7 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   int _currentStep = 0;
   UserType _selectedType = UserType.elderly;
+  bool _isLoading = false;
 
   final _nameCtrl = TextEditingController();
   final _birthCtrl = TextEditingController();
@@ -45,13 +47,7 @@ class _SignupScreenState extends State<SignupScreen> {
       ),
       body: Stepper(
         currentStep: _currentStep,
-        onStepContinue: () {
-          if (_currentStep < 2) {
-            setState(() => _currentStep++);
-          } else {
-            _submitSignup();
-          }
-        },
+        onStepContinue: _onContinue,
         onStepCancel: () {
           if (_currentStep > 0) {
             setState(() => _currentStep--);
@@ -64,16 +60,24 @@ class _SignupScreenState extends State<SignupScreen> {
           child: Row(
             children: [
               ElevatedButton(
-                onPressed: details.onStepContinue,
+                onPressed: _isLoading ? null : details.onStepContinue,
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade600,
-                    foregroundColor: Colors.white),
-                child: Text(_currentStep == 2 ? '가입 완료' : '다음'),
+                  backgroundColor: Colors.blue.shade600,
+                  foregroundColor: Colors.white,
+                ),
+                child: _isLoading && _currentStep == 2
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      )
+                    : Text(_currentStep == 2 ? '가입 완료' : '다음'),
               ),
               const SizedBox(width: 8),
               TextButton(
-                  onPressed: details.onStepCancel,
-                  child: Text(_currentStep == 0 ? '취소' : '이전')),
+                onPressed: details.onStepCancel,
+                child: Text(_currentStep == 0 ? '취소' : '이전'),
+              ),
             ],
           ),
         ),
@@ -100,21 +104,40 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
+  void _onContinue() {
+    if (_currentStep == 0) {
+      if (_nameCtrl.text.isEmpty || _phoneCtrl.text.isEmpty) {
+        _showSnack('이름과 연락처는 필수 입력 항목입니다.');
+        return;
+      }
+      setState(() => _currentStep++);
+    } else if (_currentStep == 1) {
+      setState(() => _currentStep++);
+    } else {
+      _submitSignup();
+    }
+  }
+
   Widget _buildBasicInfoStep() {
     return Column(
       children: [
-        _field(_nameCtrl, '이름', Icons.person,
-            validator: (v) => v!.isEmpty ? '이름을 입력하세요' : null),
+        _field(_nameCtrl, '이름 *', Icons.person),
         const SizedBox(height: 12),
-        _field(_birthCtrl, '생년월일 (예: 1950-03-15)', Icons.cake,
-            hint: 'YYYY-MM-DD'),
+        _field(_birthCtrl, '생년월일 (예: 1990-01-01)', Icons.cake, hint: 'YYYY-MM-DD'),
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: _field(_phoneCtrl, '연락처', Icons.phone)),
+            Expanded(child: _field(_phoneCtrl, '연락처 *', Icons.phone)),
             const SizedBox(width: 8),
             ElevatedButton(
-              onPressed: () => setState(() => _phoneVerified = true),
+              onPressed: () {
+                if (_phoneCtrl.text.isEmpty) {
+                  _showSnack('연락처를 먼저 입력해주세요.');
+                  return;
+                }
+                setState(() => _phoneVerified = true);
+                _showSnack('인증이 완료되었습니다.');
+              },
               child: Text(_phoneVerified ? '인증완료 ✓' : '인증'),
             ),
           ],
@@ -146,8 +169,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   title: Row(children: [
                     Icon(t.$3, color: Colors.blue.shade600),
                     const SizedBox(width: 8),
-                    Text(t.$2,
-                        style: const TextStyle(fontWeight: FontWeight.bold))
+                    Text(t.$2, style: const TextStyle(fontWeight: FontWeight.bold)),
                   ]),
                   subtitle: Text(t.$4),
                   activeColor: Colors.blue.shade600,
@@ -160,13 +182,13 @@ class _SignupScreenState extends State<SignupScreen> {
   Widget _buildAccountStep() {
     return Column(
       children: [
-        _field(_idCtrl, '아이디', Icons.account_circle),
+        _field(_idCtrl, '아이디 *', Icons.account_circle),
         const SizedBox(height: 12),
         TextField(
           controller: _pwCtrl,
           obscureText: true,
           decoration: InputDecoration(
-            labelText: '비밀번호',
+            labelText: '비밀번호 *',
             prefixIcon: const Icon(Icons.lock),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
@@ -176,7 +198,7 @@ class _SignupScreenState extends State<SignupScreen> {
           controller: _pw2Ctrl,
           obscureText: true,
           decoration: InputDecoration(
-            labelText: '비밀번호 확인',
+            labelText: '비밀번호 확인 *',
             prefixIcon: const Icon(Icons.lock_outline),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
@@ -192,13 +214,11 @@ class _SignupScreenState extends State<SignupScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('입력 정보 확인',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('입력 정보 확인', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Text('이름: ${_nameCtrl.text}'),
               Text('연락처: ${_phoneCtrl.text}'),
-              Text(
-                  '사용자 유형: ${_selectedType == UserType.elderly ? "독거노인" : _selectedType == UserType.child ? "아동" : _selectedType == UserType.guardian ? "보호자" : "일반"}'),
+              Text('사용자 유형: ${_userTypeLabel(_selectedType)}'),
             ],
           ),
         ),
@@ -206,11 +226,37 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  Widget _field(TextEditingController ctrl, String label, IconData icon,
-      {String? hint, String? Function(String?)? validator}) {
-    return TextFormField(
+  String _userTypeLabel(UserType t) {
+    switch (t) {
+      case UserType.elderly:
+        return '독거노인';
+      case UserType.child:
+        return '아동';
+      case UserType.guardian:
+        return '보호자';
+      case UserType.general:
+        return '일반 사용자';
+      default:
+        return '';
+    }
+  }
+
+  String _userTypeToString(UserType t) {
+    switch (t) {
+      case UserType.elderly:
+        return 'ELDERLY';
+      case UserType.child:
+        return 'CHILD';
+      case UserType.guardian:
+        return 'GUARDIAN';
+      default:
+        return 'GENERAL';
+    }
+  }
+
+  Widget _field(TextEditingController ctrl, String label, IconData icon, {String? hint}) {
+    return TextField(
       controller: ctrl,
-      validator: validator,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -220,12 +266,60 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  void _submitSignup() {
+  void _showSnack(String msg, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('회원가입이 완료되었습니다! 로그인해주세요.'),
-          backgroundColor: Colors.green),
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? Colors.red.shade600 : null,
+      ),
     );
-    Navigator.pop(context);
+  }
+
+  Future<void> _submitSignup() async {
+    // 필수값 검증
+    if (_idCtrl.text.isEmpty) {
+      _showSnack('아이디를 입력해주세요.', isError: true);
+      return;
+    }
+    if (_pwCtrl.text.isEmpty) {
+      _showSnack('비밀번호를 입력해주세요.', isError: true);
+      return;
+    }
+    if (_pwCtrl.text != _pw2Ctrl.text) {
+      _showSnack('비밀번호가 일치하지 않습니다.', isError: true);
+      return;
+    }
+    if (_pwCtrl.text.length < 6) {
+      _showSnack('비밀번호는 6자 이상이어야 합니다.', isError: true);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final result = await ApiService.signup({
+      'login_id': _idCtrl.text,
+      'user_pw': _pwCtrl.text,
+      'user_name': _nameCtrl.text,
+      'user_phone': _phoneCtrl.text,
+      'user_birth_date': _birthCtrl.text,
+      'user_address': _addressCtrl.text,
+      'guardian_phone': _guardianPhoneCtrl.text,
+      'user_type': _userTypeToString(_selectedType),
+    });
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result.data != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('회원가입이 완료되었습니다! 로그인해주세요.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context);
+    } else {
+      _showSnack(result.error ?? '회원가입 실패', isError: true);
+    }
   }
 }

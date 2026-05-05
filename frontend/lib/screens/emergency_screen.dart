@@ -101,7 +101,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> with SingleTickerProv
                   color: _sosSent ? Colors.red : _isCounting ? Colors.orange : Colors.red.shade700,
                   boxShadow: [
                     BoxShadow(
-                      color: (_sosSent || _isCounting ? Colors.red : Colors.red.shade700).withOpacity(0.4),
+                      color: (_sosSent || _isCounting ? Colors.red : Colors.red.shade700).withValues(alpha: 0.4),
                       blurRadius: 30,
                       spreadRadius: 10,
                     ),
