@@ -194,6 +194,42 @@ class ApiService {
     );
   }
 
+  static Future<({List<Map<String, dynamic>>? data, String? error})>
+      getGuardianLinks(int userId) {
+    return _listRequest(
+      () => http.get(_uri('/api/users/$userId/guardian-links')),
+      '보호자 연동 조회 실패',
+    );
+  }
+
+  static Future<({Map<String, dynamic>? data, String? error})> connectGuardian(
+    int userId,
+    Map<String, dynamic> data,
+  ) {
+    return _mapRequest(
+      () => http.post(
+        _uri('/api/users/$userId/guardian-links'),
+        headers: _headers,
+        body: jsonEncode(data),
+      ),
+      '보호자 연동 실패',
+    );
+  }
+
+  static Future<({Map<String, dynamic>? data, String? error})> updateSharing(
+    int relationId,
+    Map<String, dynamic> data,
+  ) {
+    return _mapRequest(
+      () => http.patch(
+        _uri('/api/care-relations/$relationId/sharing'),
+        headers: _headers,
+        body: jsonEncode(data),
+      ),
+      '공유 설정 저장 실패',
+    );
+  }
+
   static Future<({Map<String, dynamic>? data, String? error})> sendMessage({
     required int senderId,
     required int receiverId,
@@ -253,9 +289,9 @@ class ApiService {
     );
   }
 
-  static Future<({Map<String, dynamic>? data, String? error})> getRoutines(
-      int userId) {
-    return _mapRequest(
+  static Future<({List<Map<String, dynamic>>? data, String? error})>
+      getRoutines(int userId) {
+    return _listRequest(
       () => http.get(_uri('/api/users/$userId/routines')),
       '루틴 조회 실패',
     );
@@ -316,6 +352,14 @@ class ApiService {
     return _listRequest(
       () => http.get(_uri('/api/users/$userId/locations')),
       '위치 기록 조회 실패',
+    );
+  }
+
+  static Future<({List<Map<String, dynamic>>? data, String? error})>
+      getNotifications(int userId) {
+    return _listRequest(
+      () => http.get(_uri('/api/users/$userId/notifications')),
+      '알림 조회 실패',
     );
   }
 

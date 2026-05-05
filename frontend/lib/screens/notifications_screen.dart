@@ -12,6 +12,43 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   final state = AppState.instance;
   bool _markingAll = false;
+  bool _isLoading = false;
+
+  List<Map<String, dynamic>> get _notifications => state.notifications;
+
+  @override
+  void initState() {
+    super.initState();
+    state.addListener(_refresh);
+    _loadNotifications();
+  }
+
+  @override
+  void dispose() {
+    state.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadNotifications() async {
+    final userId = state.currentUserId;
+    if (userId == null) {
+      state.notifyChanged();
+      return;
+    }
+    setState(() => _isLoading = true);
+    final result = await ApiService.getNotifications(userId);
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+    if (result.data != null) {
+      state.applyNotifications(result.data!);
+    } else {
+      state.notifyChanged();
+    }
+  }
 
   IconData _typeIcon(String type) {
     switch (type) {
@@ -53,11 +90,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _markRead(Map<String, dynamic> n) async {
     if (n['isRead'] == true) return;
-    setState(() {
-      n['isRead'] = true;
-      state.unreadNotifications =
-          state.notifications.where((x) => x['isRead'] == false).length;
-    });
+    state.markNotificationRead(n);
     final alertId = n['alert_id'];
     if (alertId is int) {
       await ApiService.markNotificationRead(alertId);
@@ -66,10 +99,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _markAllRead() async {
     setState(() => _markingAll = true);
-    for (var n in state.notifications) {
-      n['isRead'] = true;
-    }
-    state.unreadNotifications = 0;
+    state.markAllNotificationsRead();
     setState(() => _markingAll = false);
 
     final userId = state.currentUserId;
@@ -86,6 +116,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            onPressed: _isLoading ? null : _loadNotifications,
+            icon: const Icon(Icons.refresh),
+          ),
           _markingAll
               ? const Padding(
                   padding: EdgeInsets.all(16),
@@ -102,101 +136,100 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
         ],
       ),
-      body: state.notifications.isEmpty
-          ? const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.notifications_none,
-                      size: 64, color: Colors.grey),
-                  SizedBox(height: 12),
-                  Text('알림이 없습니다.',
-                      style: TextStyle(color: Colors.grey, fontSize: 16)),
-                ],
-              ),
-            )
-          : ListView.separated(
-              itemCount: state.notifications.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (_, i) {
-                final n = state.notifications[i];
-                final isRead = n['isRead'] as bool? ?? false;
-                final type = (n['type'] as String?) ?? 'schedule';
-                final priority = (n['priority'] as String?) ?? 'NORMAL';
-                return Dismissible(
-                  key: Key('notif_${n['alert_id'] ?? i}'),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.only(right: 16),
-                    color: Colors.red,
-                    child: const Icon(Icons.delete, color: Colors.white),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _notifications.isEmpty
+              ? const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.notifications_none,
+                          size: 64, color: Colors.grey),
+                      SizedBox(height: 12),
+                      Text('알림이 없습니다.',
+                          style: TextStyle(color: Colors.grey, fontSize: 16)),
+                    ],
                   ),
-                  onDismissed: (_) =>
-                      setState(() => state.notifications.removeAt(i)),
-                  child: ListTile(
-                    tileColor: isRead ? null : Colors.blue.shade50,
-                    leading: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: _typeColor(type).withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(_typeIcon(type),
-                              color: _typeColor(type)),
-                        ),
-                        if (priority == 'EMERGENCY' || priority == 'HIGH')
-                          Positioned(
-                            top: -2,
-                            right: -2,
-                            child: Container(
-                              width: 12,
-                              height: 12,
-                              decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle),
+                )
+              : ListView.separated(
+                  itemCount: _notifications.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, i) {
+                    final n = _notifications[i];
+                    final isRead = n['isRead'] as bool? ?? false;
+                    final type = (n['type'] as String?) ?? 'schedule';
+                    final priority = (n['priority'] as String?) ?? 'NORMAL';
+                    return Dismissible(
+                      key: Key('notif_${n['alert_id'] ?? i}'),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 16),
+                        color: Colors.red,
+                        child: const Icon(Icons.delete, color: Colors.white),
+                      ),
+                      onDismissed: (_) => state.dismissNotification(n),
+                      child: ListTile(
+                        tileColor: isRead ? null : Colors.blue.shade50,
+                        leading: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              width: 44,
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: _typeColor(type).withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(_typeIcon(type),
+                                  color: _typeColor(type)),
                             ),
-                          ),
-                      ],
-                    ),
-                    title: Text(
-                      n['title'] as String? ?? '알림',
-                      style: TextStyle(
-                          fontWeight: isRead
-                              ? FontWeight.normal
-                              : FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      n['body'] as String? ?? '',
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(n['time'] as String? ?? '',
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.grey)),
-                        if (!isRead)
-                          Container(
-                            width: 8,
-                            height: 8,
-                            margin: const EdgeInsets.only(top: 4),
-                            decoration: const BoxDecoration(
-                                color: Colors.blue,
-                                shape: BoxShape.circle),
-                          ),
-                      ],
-                    ),
-                    onTap: () => _markRead(n),
-                  ),
-                );
-              },
-            ),
+                            if (priority == 'EMERGENCY' || priority == 'HIGH')
+                              Positioned(
+                                top: -2,
+                                right: -2,
+                                child: Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle),
+                                ),
+                              ),
+                          ],
+                        ),
+                        title: Text(
+                          n['title'] as String? ?? '알림',
+                          style: TextStyle(
+                              fontWeight:
+                                  isRead ? FontWeight.normal : FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          n['body'] as String? ?? '',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(n['time'] as String? ?? '',
+                                style: const TextStyle(
+                                    fontSize: 12, color: Colors.grey)),
+                            if (!isRead)
+                              Container(
+                                width: 8,
+                                height: 8,
+                                margin: const EdgeInsets.only(top: 4),
+                                decoration: const BoxDecoration(
+                                    color: Colors.blue, shape: BoxShape.circle),
+                              ),
+                          ],
+                        ),
+                        onTap: () => _markRead(n),
+                      ),
+                    );
+                  },
+                ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showNotificationSettings,
         icon: const Icon(Icons.settings),
@@ -206,13 +239,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _showNotificationSettings() {
-    final Map<String, bool> settings = {
-      '약 복용 알림': true,
-      '긴급 상황 알림': true,
-      '보호자 메시지 알림': true,
-      '활동량 알림': false,
-      '일정 알림': true,
-    };
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -225,22 +251,34 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('알림 설정',
-                  style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
-              ...settings.keys.map(
-                (key) => SwitchListTile(
-                  value: settings[key]!,
-                  onChanged: (v) => setLocal(() => settings[key] = v),
-                  title: Text(key),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
+              _notificationSwitch(setLocal, 'medication', '약 복용 알림'),
+              _notificationSwitch(setLocal, 'emergency', '긴급 상황 알림'),
+              _notificationSwitch(setLocal, 'guardian', '보호자 메시지 알림'),
+              _notificationSwitch(setLocal, 'activity', '활동량 알림'),
+              _notificationSwitch(setLocal, 'schedule', '일정 알림'),
+              _notificationSwitch(setLocal, 'device', '기기 상태 알림'),
               const SizedBox(height: 16),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _notificationSwitch(
+    StateSetter setLocal,
+    String type,
+    String label,
+  ) {
+    return SwitchListTile(
+      value: state.notificationSettings[type] ?? true,
+      onChanged: (v) {
+        setLocal(() => state.setNotificationEnabled(type, v));
+      },
+      title: Text(label),
+      contentPadding: EdgeInsets.zero,
     );
   }
 }

@@ -13,17 +13,27 @@ class HealthTab extends StatefulWidget {
 class _HealthTabState extends State<HealthTab>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final state = AppState.instance;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadRoutines();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadRoutines() async {
+    final userId = state.currentUserId;
+    if (userId == null) return;
+    final result = await ApiService.getRoutines(userId);
+    if (!mounted || result.data == null) return;
+    state.replaceRoutinesFromApi(result.data!);
   }
 
   @override
@@ -66,12 +76,27 @@ class _MedicationViewState extends State<_MedicationView> {
   final state = AppState.instance;
   bool _isLoading = false;
 
-  List<MedicationRecord> get _meds =>
-      state.todayMedications.where((m) => m.category == 'medication').toList();
+  List<MedicationRecord> get _meds => state.medicationRoutines;
+
+  @override
+  void initState() {
+    super.initState();
+    state.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    state.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
 
   Future<void> _toggleMedication(MedicationRecord med) async {
     final newValue = !med.isTaken;
-    setState(() => med.isTaken = newValue);
+    state.setRoutineDone(med, newValue);
     final routineId = med.routineId;
     if (routineId == null) return;
     if (newValue) {
@@ -93,10 +118,8 @@ class _MedicationViewState extends State<_MedicationView> {
               child: const Text('취소')),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style:
-                ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child:
-                const Text('삭제', style: TextStyle(color: Colors.white)),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('삭제', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -106,7 +129,7 @@ class _MedicationViewState extends State<_MedicationView> {
     if (routineId != null) {
       await ApiService.deleteRoutine(routineId);
     }
-    setState(() => state.todayMedications.remove(med));
+    state.removeRoutineRecord(med);
   }
 
   void _addMedication() {
@@ -131,8 +154,7 @@ class _MedicationViewState extends State<_MedicationView> {
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('취소')),
+              onPressed: () => Navigator.pop(context), child: const Text('취소')),
           ElevatedButton(
             onPressed: () async {
               if (nameCtrl.text.isEmpty || timeCtrl.text.isEmpty) return;
@@ -149,13 +171,13 @@ class _MedicationViewState extends State<_MedicationView> {
               setState(() => _isLoading = false);
               if (result.data != null) {
                 final r = result.data!;
-                state.todayMedications.add(MedicationRecord(
-                  routineId: r['routine_id'] is int ? r['routine_id'] as int : null,
+                state.addRoutineRecord(MedicationRecord(
+                  routineId:
+                      r['routine_id'] is int ? r['routine_id'] as int : null,
                   name: r['routine_title'] as String? ?? nameCtrl.text,
                   time: r['routine_notify_time'] as String? ?? timeCtrl.text,
                   category: 'medication',
                 ));
-                setState(() {});
               }
             },
             child: const Text('추가'),
@@ -233,7 +255,8 @@ class _MedicationViewState extends State<_MedicationView> {
                               ? Colors.green.shade100
                               : Colors.orange.shade100,
                           child: Icon(Icons.medication,
-                              color: med.isTaken ? Colors.green : Colors.orange),
+                              color:
+                                  med.isTaken ? Colors.green : Colors.orange),
                         ),
                         title: Text(med.name,
                             style: TextStyle(
@@ -269,8 +292,7 @@ class _MedicationViewState extends State<_MedicationView> {
             const SizedBox(height: 80),
           ],
         ),
-        if (_isLoading)
-          const Center(child: CircularProgressIndicator()),
+        if (_isLoading) const Center(child: CircularProgressIndicator()),
       ],
     );
   }
@@ -287,14 +309,27 @@ class _ScheduleViewState extends State<_ScheduleView> {
   final state = AppState.instance;
   bool _isLoading = false;
 
-  List<MedicationRecord> get _schedules => state.todayMedications
-      .where((m) => m.category != 'medication')
-      .toList()
-    ..sort((a, b) => a.time.compareTo(b.time));
+  List<MedicationRecord> get _schedules => state.scheduleRoutines;
+
+  @override
+  void initState() {
+    super.initState();
+    state.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    state.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
 
   Future<void> _toggleSchedule(MedicationRecord s) async {
     final newValue = !s.isTaken;
-    setState(() => s.isTaken = newValue);
+    state.setRoutineDone(s, newValue);
     final routineId = s.routineId;
     if (routineId == null) return;
     if (newValue) {
@@ -325,7 +360,7 @@ class _ScheduleViewState extends State<_ScheduleView> {
     if (confirm != true) return;
     final routineId = s.routineId;
     if (routineId != null) await ApiService.deleteRoutine(routineId);
-    setState(() => state.todayMedications.remove(s));
+    state.removeRoutineRecord(s);
   }
 
   void _addSchedule() {
@@ -365,8 +400,7 @@ class _ScheduleViewState extends State<_ScheduleView> {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('취소')),
+                onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
             ElevatedButton(
               onPressed: () async {
                 if (titleCtrl.text.isEmpty || timeCtrl.text.isEmpty) return;
@@ -383,14 +417,13 @@ class _ScheduleViewState extends State<_ScheduleView> {
                 setState(() => _isLoading = false);
                 if (result.data != null) {
                   final r = result.data!;
-                  state.todayMedications.add(MedicationRecord(
+                  state.addRoutineRecord(MedicationRecord(
                     routineId:
                         r['routine_id'] is int ? r['routine_id'] as int : null,
                     name: r['routine_title'] as String? ?? titleCtrl.text,
                     time: r['routine_notify_time'] as String? ?? timeCtrl.text,
                     category: r['routine_category'] as String? ?? category,
                   ));
-                  setState(() {});
                 }
               },
               child: const Text('추가'),
@@ -468,9 +501,8 @@ class _ScheduleViewState extends State<_ScheduleView> {
                         ),
                         title: Text(s.name,
                             style: TextStyle(
-                              decoration: s.isTaken
-                                  ? TextDecoration.lineThrough
-                                  : null,
+                              decoration:
+                                  s.isTaken ? TextDecoration.lineThrough : null,
                               color: s.isTaken ? Colors.grey : Colors.black,
                             )),
                         trailing: Checkbox(
@@ -490,8 +522,7 @@ class _ScheduleViewState extends State<_ScheduleView> {
             const SizedBox(height: 80),
           ],
         ),
-        if (_isLoading)
-          const Center(child: CircularProgressIndicator()),
+        if (_isLoading) const Center(child: CircularProgressIndicator()),
       ],
     );
   }

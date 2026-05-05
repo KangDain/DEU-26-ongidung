@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/app_state.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
@@ -13,11 +14,35 @@ class GuardianTab extends StatefulWidget {
 
 class _GuardianTabState extends State<GuardianTab> {
   final state = AppState.instance;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _loadRecipients();
+    state.addListener(_refresh);
+    _loadGuardianData();
+  }
+
+  @override
+  void dispose() {
+    state.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadGuardianData() async {
+    final user = state.currentUser;
+    if (user == null || user.userId == null) return;
+    setState(() => _isLoading = true);
+    if (user.userType == UserType.guardian) {
+      await _loadRecipients();
+    } else {
+      await _loadLinkedGuardians();
+    }
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _loadRecipients() async {
@@ -25,11 +50,18 @@ class _GuardianTabState extends State<GuardianTab> {
     if (user?.userType != UserType.guardian || user?.userId == null) return;
     final result = await ApiService.getGuardianRecipients(user!.userId!);
     if (!mounted || result.data == null) return;
-    setState(() {
-      state.guardianUsers
-        ..clear()
-        ..addAll(result.data!.map(_recipientFromApi));
-    });
+    state.guardianUsers
+      ..clear()
+      ..addAll(result.data!.map(_recipientFromApi));
+    state.notifyChanged();
+  }
+
+  Future<void> _loadLinkedGuardians() async {
+    final userId = state.currentUserId;
+    if (userId == null) return;
+    final result = await ApiService.getGuardianLinks(userId);
+    if (!mounted || result.data == null) return;
+    state.applyGuardianLinks(result.data!);
   }
 
   Map<String, dynamic> _recipientFromApi(Map<String, dynamic> row) {
@@ -42,7 +74,13 @@ class _GuardianTabState extends State<GuardianTab> {
     return {
       'user_id': recipient['user_id'],
       'name': recipient['user_name'] ?? '보호 대상자',
+      'phone': recipient['user_phone'] ?? '',
       'type': _typeLabel(recipient['user_type'] as String?),
+      'relation_id': row['relation_id'],
+      'relation': row['relation_name'] ?? '보호자',
+      'share_location': row['share_location'] == true,
+      'share_health': row['share_health'] == true,
+      'share_activity': row['share_activity'] == true,
       'status': dashboard['safety_status'] ?? '안전',
       'lastUpdate': '방금 전',
       'heartRate': 72,
@@ -75,8 +113,18 @@ class _GuardianTabState extends State<GuardianTab> {
         title: Text(isGuardian ? '보호 대상자 관리' : '보호자 연동'),
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            onPressed: _isLoading ? null : _loadGuardianData,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
       ),
-      body: isGuardian ? _buildGuardianView() : _buildUserGuardianView(),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : isGuardian
+              ? _buildGuardianView()
+              : _buildUserGuardianView(),
     );
   }
 
@@ -84,7 +132,16 @@ class _GuardianTabState extends State<GuardianTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        ...state.guardianUsers.map((u) => _guardianUserCard(u)),
+        if (state.guardianUsers.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(32),
+            child: Center(
+              child: Text('연결된 보호 대상자가 없습니다.',
+                  style: TextStyle(color: Colors.grey)),
+            ),
+          )
+        else
+          ...state.guardianUsers.map((u) => _guardianUserCard(u)),
       ],
     );
   }
@@ -206,7 +263,7 @@ class _GuardianTabState extends State<GuardianTab> {
                   const SizedBox(width: 8),
                   Expanded(
                       child: ElevatedButton.icon(
-                    onPressed: () {},
+                    onPressed: () => _callPhone(user['phone'] as String?),
                     style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue.shade600,
                         foregroundColor: Colors.white),
@@ -234,6 +291,7 @@ class _GuardianTabState extends State<GuardianTab> {
   }
 
   Widget _buildUserGuardianView() {
+    final guardians = state.linkedGuardians;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -249,27 +307,44 @@ class _GuardianTabState extends State<GuardianTab> {
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 12),
-                ...?state.currentUser?.emergencyContacts.map((c) => ListTile(
+                if (guardians.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Text('연결된 보호자가 없습니다. 아래 버튼으로 보호자 계정을 연동하세요.',
+                        style: TextStyle(color: Colors.grey)),
+                  )
+                else
+                  ...guardians.map(
+                    (guardian) => ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Colors.blue.shade100,
-                        child: Text('${c.priority}',
+                        child: Text('${guardian['priority'] ?? 1}',
                             style: TextStyle(
                                 color: Colors.blue.shade700,
                                 fontWeight: FontWeight.bold)),
                       ),
-                      title: Text(c.name),
-                      subtitle: Text(c.phone),
+                      title: Text(guardian['name'] as String? ?? '보호자'),
+                      subtitle: Text(
+                          '${guardian['relation'] ?? '보호자'} · ${guardian['phone'] ?? ''}'),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                              icon: const Icon(Icons.message),
-                              onPressed: () => _sendMessage(c.name)),
+                            icon: const Icon(Icons.message),
+                            onPressed: () => _sendMessage(
+                              guardian['name'] as String? ?? '보호자',
+                              receiverId: guardian['guardian_id'] as int?,
+                            ),
+                          ),
                           IconButton(
-                              icon: const Icon(Icons.phone), onPressed: () {}),
+                            icon: const Icon(Icons.phone),
+                            onPressed: () =>
+                                _callPhone(guardian['phone'] as String?),
+                          ),
                         ],
                       ),
-                    )),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -287,9 +362,21 @@ class _GuardianTabState extends State<GuardianTab> {
                     style:
                         TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 8),
-                _shareSwitch('위치 정보 공유', true),
-                _shareSwitch('건강 데이터 공유', true),
-                _shareSwitch('활동 데이터 공유', false),
+                _shareSwitch(
+                  label: '위치 정보 공유',
+                  value: state.shareLocation,
+                  onChanged: (v) => _updateSharing(location: v),
+                ),
+                _shareSwitch(
+                  label: '건강 데이터 공유',
+                  value: state.shareHealth,
+                  onChanged: (v) => _updateSharing(health: v),
+                ),
+                _shareSwitch(
+                  label: '활동 데이터 공유',
+                  value: state.shareActivity,
+                  onChanged: (v) => _updateSharing(activity: v),
+                ),
               ],
             ),
           ),
@@ -304,14 +391,20 @@ class _GuardianTabState extends State<GuardianTab> {
     );
   }
 
-  Widget _shareSwitch(String label, bool initial) {
-    return StatefulBuilder(
-      builder: (_, set) => SwitchListTile(
-        value: initial,
-        onChanged: (v) => set(() {}),
-        title: Text(label),
-        contentPadding: EdgeInsets.zero,
-      ),
+  Widget _shareSwitch({
+    required String label,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return SwitchListTile(
+      value: value,
+      onChanged: onChanged,
+      title: Text(label),
+      subtitle: state.linkedGuardians.isEmpty
+          ? const Text('보호자를 먼저 연동하면 공유 설정이 저장됩니다.',
+              style: TextStyle(fontSize: 12))
+          : null,
+      contentPadding: EdgeInsets.zero,
     );
   }
 
@@ -411,29 +504,118 @@ class _GuardianTabState extends State<GuardianTab> {
     );
   }
 
+  Future<void> _callPhone(String? phone) async {
+    final cleaned = (phone ?? '').replaceAll(RegExp(r'[^0-9+]'), '');
+    if (cleaned.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('등록된 전화번호가 없습니다.')),
+      );
+      return;
+    }
+    await launchUrl(Uri.parse('tel:$cleaned'));
+  }
+
+  Future<void> _updateSharing({
+    bool? location,
+    bool? health,
+    bool? activity,
+  }) async {
+    final previousLocation = state.shareLocation;
+    final previousHealth = state.shareHealth;
+    final previousActivity = state.shareActivity;
+
+    state.setShareSettings(
+      location: location,
+      health: health,
+      activity: activity,
+    );
+
+    final payload = {
+      'share_location': state.shareLocation,
+      'share_health': state.shareHealth,
+      'share_activity': state.shareActivity,
+    };
+
+    final relationId = state.linkedGuardians.isNotEmpty
+        ? state.linkedGuardians.first['relation_id']
+        : null;
+
+    ({Map<String, dynamic>? data, String? error}) result;
+    if (relationId is int) {
+      result = await ApiService.updateSharing(relationId, payload);
+    } else if (state.currentUserId == null) {
+      result = (data: null, error: '로그인이 필요합니다.');
+    } else {
+      result = await ApiService.updateProfile(state.currentUserId!, payload);
+    }
+
+    if (!mounted || result.error == null) return;
+
+    state.setShareSettings(
+      location: previousLocation,
+      health: previousHealth,
+      activity: previousActivity,
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result.error!)),
+    );
+  }
+
   void _addGuardian() {
+    final loginCtrl = TextEditingController();
+    final relationCtrl = TextEditingController(text: '보호자');
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('보호자 추가'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(decoration: InputDecoration(labelText: '이름')),
-            SizedBox(height: 8),
-            TextField(decoration: InputDecoration(labelText: '연락처')),
-            SizedBox(height: 8),
-            TextField(decoration: InputDecoration(labelText: '관계 (예: 아들, 딸)')),
+            TextField(
+              controller: loginCtrl,
+              decoration: const InputDecoration(
+                labelText: '보호자 아이디 *',
+                hintText: '보호자로 가입한 로그인 아이디',
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: relationCtrl,
+              decoration: const InputDecoration(labelText: '관계'),
+            ),
           ],
         ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context), child: const Text('취소')),
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('취소')),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('보호자 추가 요청을 보냈습니다.')));
+            onPressed: () async {
+              final userId = state.currentUserId;
+              final loginId = loginCtrl.text.trim();
+              if (userId == null || loginId.isEmpty) return;
+              Navigator.pop(dialogContext);
+              setState(() => _isLoading = true);
+              final result = await ApiService.connectGuardian(userId, {
+                'guardian_login_id': loginId,
+                'recipient_id': userId,
+                'relation_name': relationCtrl.text.trim().isEmpty
+                    ? '보호자'
+                    : relationCtrl.text.trim(),
+                'priority': state.linkedGuardians.length + 1,
+              });
+              if (!mounted) return;
+              setState(() => _isLoading = false);
+              if (result.data != null) {
+                state.addGuardianLinkFromApi(result.data!);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('보호자가 연동되었습니다.')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(result.error ?? '보호자 연동 실패')),
+                );
+              }
             },
             child: const Text('추가'),
           ),

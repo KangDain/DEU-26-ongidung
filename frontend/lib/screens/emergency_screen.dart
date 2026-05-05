@@ -94,6 +94,7 @@ class _EmergencyScreenState extends State<EmergencyScreen>
           _isCounting = false;
           AppState.instance.hasEmergency = true;
         });
+        AppState.instance.notifyChanged();
         _sendSos();
       } else {
         setState(() => _countdown--);
@@ -274,8 +275,7 @@ class _EmergencyScreenState extends State<EmergencyScreen>
   }
 
   Widget _emergencyContactsList() {
-    final guardianPhone =
-        AppState.instance.currentUser?.guardianPhone ?? '';
+    final guardianPhone = AppState.instance.currentUser?.guardianPhone ?? '';
 
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -306,8 +306,7 @@ class _EmergencyScreenState extends State<EmergencyScreen>
                     phone: c.phone,
                   )),
               if (_contacts.isEmpty && guardianPhone.isNotEmpty)
-                _contactTile(
-                    priority: 1, name: '보호자', phone: guardianPhone),
+                _contactTile(priority: 1, name: '보호자', phone: guardianPhone),
             ],
           ],
         ),
@@ -316,9 +315,7 @@ class _EmergencyScreenState extends State<EmergencyScreen>
   }
 
   Widget _contactTile(
-      {required int priority,
-      required String name,
-      required String phone}) {
+      {required int priority, required String name, required String phone}) {
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: Colors.red.shade100,

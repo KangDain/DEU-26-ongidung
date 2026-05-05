@@ -21,7 +21,18 @@ class _DashboardTabState extends State<DashboardTab> {
   @override
   void initState() {
     super.initState();
+    state.addListener(_refresh);
     _loadDashboard();
+  }
+
+  @override
+  void dispose() {
+    state.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadDashboard() async {
@@ -37,8 +48,17 @@ class _DashboardTabState extends State<DashboardTab> {
   @override
   Widget build(BuildContext context) {
     final user = state.currentUser;
-    final takenCount = state.todayMedications.where((m) => m.isTaken).length;
-    final totalMeds = state.todayMedications.length;
+    final takenCount = state.takenMedicationCount;
+    final totalMeds = state.totalMedicationCount;
+    final emergencyColor = state.isEmergencyActive ? Colors.red : Colors.green;
+    final medicationColor = totalMeds == 0 || takenCount == totalMeds
+        ? Colors.green
+        : Colors.orange;
+    final activityColor = state.activityStatusLabel.contains('주의')
+        ? Colors.red
+        : state.activityStatusLabel.contains('확인')
+            ? Colors.orange
+            : Colors.blue.shade300;
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
@@ -99,17 +119,18 @@ class _DashboardTabState extends State<DashboardTab> {
                         Row(
                           children: [
                             _statusChip(
-                                Icons.shield, state.safetyStatus, Colors.green),
+                              state.isEmergencyActive
+                                  ? Icons.sos
+                                  : Icons.shield,
+                              state.emergencyStatusLabel,
+                              emergencyColor,
+                            ),
                             const SizedBox(width: 8),
-                            _statusChip(
-                                Icons.medication,
-                                '약 $takenCount/$totalMeds',
-                                takenCount == totalMeds
-                                    ? Colors.green
-                                    : Colors.orange),
+                            _statusChip(Icons.medication,
+                                state.medicationProgressLabel, medicationColor),
                             const SizedBox(width: 8),
-                            _statusChip(Icons.directions_walk, '활동 정상',
-                                Colors.blue.shade300),
+                            _statusChip(Icons.directions_walk,
+                                state.activityStatusLabel, activityColor),
                           ],
                         ),
                       ],
@@ -172,7 +193,8 @@ class _DashboardTabState extends State<DashboardTab> {
   }
 
   Widget _todaySummaryCard() {
-    final summaryLines = state.careSummary;
+    final summaryLines = state.computedCareSummary;
+    final routines = state.sortedTodayRoutines;
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
@@ -187,8 +209,7 @@ class _DashboardTabState extends State<DashboardTab> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.circle, size: 8,
-                          color: Colors.blue.shade400),
+                      Icon(Icons.circle, size: 8, color: Colors.blue.shade400),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(line,
@@ -201,39 +222,40 @@ class _DashboardTabState extends State<DashboardTab> {
               ),
               const Divider(height: 20),
             ],
-            if (state.todayMedications.isEmpty)
+            if (routines.isEmpty)
               Text('오늘 일정이 없습니다.',
                   style: TextStyle(color: Colors.grey.shade500))
             else
-              ...state.todayMedications.map(
-                (med) => Padding(
+              ...routines.map(
+                (routine) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
                     children: [
                       Icon(
-                          med.isTaken
+                          routine.isTaken
                               ? Icons.check_circle
                               : Icons.radio_button_unchecked,
-                          color: med.isTaken ? Colors.green : Colors.grey),
+                          color: routine.isTaken ? Colors.green : Colors.grey),
                       const SizedBox(width: 12),
                       Expanded(
-                          child: Text(med.name,
+                          child: Text(routine.name,
                               style: TextStyle(
-                                decoration: med.isTaken
+                                decoration: routine.isTaken
                                     ? TextDecoration.lineThrough
                                     : null,
-                                color: med.isTaken
+                                color: routine.isTaken
                                     ? Colors.grey
                                     : Colors.black,
                               ))),
-                      Text(med.time,
+                      Text(routine.time,
                           style: const TextStyle(
                               color: Colors.grey, fontSize: 13)),
                       const SizedBox(width: 8),
-                      if (!med.isTaken)
+                      if (!routine.isTaken)
                         TextButton(
-                          onPressed: () => _completeMedication(med),
-                          child: const Text('복용완료'),
+                          onPressed: () => _completeMedication(routine),
+                          child: Text(
+                              routine.category == 'medication' ? '복용완료' : '완료'),
                         ),
                     ],
                   ),
@@ -308,7 +330,7 @@ class _DashboardTabState extends State<DashboardTab> {
   }
 
   Future<void> _completeMedication(dynamic med) async {
-    setState(() => med.isTaken = true);
+    state.setRoutineDone(med, true);
     final routineId = med.routineId;
     if (routineId is int) {
       await ApiService.completeRoutine(routineId);
@@ -430,5 +452,4 @@ class _DashboardTabState extends State<DashboardTab> {
       ),
     );
   }
-
 }

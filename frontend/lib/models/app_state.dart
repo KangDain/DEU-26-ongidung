@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
+
 import 'user_model.dart';
 
-class AppState {
+class AppState extends ChangeNotifier {
   static AppState? _instance;
   static AppState get instance => _instance ??= AppState._();
   AppState._();
@@ -10,10 +12,27 @@ class AppState {
   bool isLoggedIn = false;
   String safetyStatus = '안전';
   String healthStatus = '활동량 정상';
+  String activityStatus = '활동 정상';
   String locationStatus = '위치 정상';
   bool hasEmergency = false;
   int unreadNotifications = 3;
   List<String> careSummary = [];
+  bool shareLocation = true;
+  bool shareHealth = true;
+  bool shareActivity = false;
+
+  final Map<String, bool> notificationSettings = {
+    'medication': true,
+    'emergency': true,
+    'guardian': true,
+    'activity': true,
+    'schedule': true,
+    'device': true,
+  };
+
+  final Set<String> _readLocalNotificationKeys = {};
+  final Set<String> _dismissedLocalNotificationKeys = {};
+  final List<Map<String, dynamic>> linkedGuardians = [];
 
   final List<IoTDevice> devices = [
     IoTDevice(id: '1', name: '스마트밴드', type: 'wearable', batteryLevel: 75),
@@ -123,6 +142,298 @@ class AppState {
     },
   ];
 
+  List<MedicationRecord> get medicationRoutines => todayMedications
+      .where((routine) => routine.category == 'medication')
+      .toList()
+    ..sort((a, b) => a.time.compareTo(b.time));
+
+  List<MedicationRecord> get scheduleRoutines => todayMedications
+      .where((routine) => routine.category != 'medication')
+      .toList()
+    ..sort((a, b) => a.time.compareTo(b.time));
+
+  List<MedicationRecord> get sortedTodayRoutines =>
+      [...todayMedications]..sort((a, b) => a.time.compareTo(b.time));
+
+  int get takenMedicationCount =>
+      medicationRoutines.where((routine) => routine.isTaken).length;
+
+  int get totalMedicationCount => medicationRoutines.length;
+
+  int get completedScheduleCount =>
+      scheduleRoutines.where((routine) => routine.isTaken).length;
+
+  int get totalScheduleCount => scheduleRoutines.length;
+
+  int get connectedDeviceCount =>
+      devices.where((device) => device.isConnected).length;
+
+  bool get isEmergencyActive =>
+      hasEmergency ||
+      safetyStatus.contains('긴급') ||
+      notifications.any((notification) =>
+          notification['type'] == 'emergency' &&
+          notification['isRead'] != true);
+
+  String get emergencyStatusLabel => isEmergencyActive ? '긴급' : '안전';
+
+  String get medicationProgressLabel => totalMedicationCount == 0
+      ? '약 0/0'
+      : '약 $takenMedicationCount/$totalMedicationCount';
+
+  String get activityStatusLabel {
+    if (notifications.any((notification) =>
+        notification['type'] == 'activity' && notification['isRead'] != true)) {
+      return '활동 주의';
+    }
+    if (devices.isNotEmpty && connectedDeviceCount < devices.length) {
+      return '활동 확인';
+    }
+    return activityStatus;
+  }
+
+  List<String> get computedCareSummary {
+    final rows = <String>[];
+    rows.add(isEmergencyActive ? '긴급 상황이 열려 있습니다.' : '긴급 상황 없이 안전합니다.');
+
+    if (totalMedicationCount == 0) {
+      rows.add('오늘 등록된 약 복용 일정이 없습니다.');
+    } else {
+      rows.add('약 복용 $takenMedicationCount/$totalMedicationCount 완료');
+      final nextMed = medicationRoutines
+          .where((routine) => !routine.isTaken)
+          .cast<MedicationRecord?>()
+          .firstWhere((routine) => routine != null, orElse: () => null);
+      if (nextMed != null) {
+        rows.add('다음 약: ${nextMed.time} ${nextMed.name}');
+      }
+    }
+
+    if (totalScheduleCount == 0) {
+      rows.add('오늘 등록된 일정이 없습니다.');
+    } else {
+      rows.add('일정 $completedScheduleCount/$totalScheduleCount 완료');
+      final nextSchedule = scheduleRoutines
+          .where((routine) => !routine.isTaken)
+          .cast<MedicationRecord?>()
+          .firstWhere((routine) => routine != null, orElse: () => null);
+      if (nextSchedule != null) {
+        rows.add('다음 일정: ${nextSchedule.time} ${nextSchedule.name}');
+      }
+    }
+
+    rows.add('활동 상태: $activityStatusLabel');
+    if (unreadNotifications > 0) {
+      rows.add('읽지 않은 알림 $unreadNotifications개');
+    }
+    return rows;
+  }
+
+  void notifyChanged() {
+    _syncRoutineNotifications();
+    _refreshUnreadCount();
+    notifyListeners();
+  }
+
+  void setRoutineDone(MedicationRecord routine, bool isDone) {
+    routine.isTaken = isDone;
+    notifyChanged();
+  }
+
+  void addRoutineRecord(MedicationRecord routine) {
+    todayMedications.add(routine);
+    notifyChanged();
+  }
+
+  void removeRoutineRecord(MedicationRecord routine) {
+    todayMedications.remove(routine);
+    _dismissedLocalNotificationKeys.add(_routineNotificationKey(routine));
+    notifyChanged();
+  }
+
+  void replaceRoutinesFromApi(Iterable<Map<String, dynamic>> rows) {
+    todayMedications
+      ..clear()
+      ..addAll(rows.map(_routineFromApi));
+    notifyChanged();
+  }
+
+  void applyNotifications(List<Map<String, dynamic>> rows) {
+    notifications
+      ..clear()
+      ..addAll(rows.map(_notificationFromApi));
+    notifyChanged();
+  }
+
+  void markNotificationRead(Map<String, dynamic> notification) {
+    notification['isRead'] = true;
+    final key = notification['local_key'] as String?;
+    if (key != null) _readLocalNotificationKeys.add(key);
+    notifyChanged();
+  }
+
+  void markAllNotificationsRead() {
+    for (final notification in notifications) {
+      notification['isRead'] = true;
+      final key = notification['local_key'] as String?;
+      if (key != null) _readLocalNotificationKeys.add(key);
+    }
+    notifyChanged();
+  }
+
+  void dismissNotification(Map<String, dynamic> notification) {
+    final key = notification['local_key'] as String?;
+    if (key != null) _dismissedLocalNotificationKeys.add(key);
+    notifications.remove(notification);
+    notifyChanged();
+  }
+
+  void setNotificationEnabled(String type, bool enabled) {
+    notificationSettings[type] = enabled;
+    notifyChanged();
+  }
+
+  void setShareSettings({
+    bool? location,
+    bool? health,
+    bool? activity,
+  }) {
+    shareLocation = location ?? shareLocation;
+    shareHealth = health ?? shareHealth;
+    shareActivity = activity ?? shareActivity;
+    for (final guardian in linkedGuardians) {
+      guardian['share_location'] = shareLocation;
+      guardian['share_health'] = shareHealth;
+      guardian['share_activity'] = shareActivity;
+    }
+    notifyListeners();
+  }
+
+  void applyGuardianLinks(List<Map<String, dynamic>> rows) {
+    linkedGuardians
+      ..clear()
+      ..addAll(rows.map(_guardianLinkFromApi));
+    if (linkedGuardians.isNotEmpty) {
+      final first = linkedGuardians.first;
+      shareLocation = first['share_location'] == true;
+      shareHealth = first['share_health'] == true;
+      shareActivity = first['share_activity'] == true;
+    }
+    notifyListeners();
+  }
+
+  void addGuardianLinkFromApi(Map<String, dynamic> row) {
+    final link = _guardianLinkFromApi(row);
+    linkedGuardians.removeWhere((existing) =>
+        existing['relation_id'] == link['relation_id'] ||
+        existing['guardian_id'] == link['guardian_id']);
+    linkedGuardians.add(link);
+    shareLocation = link['share_location'] == true;
+    shareHealth = link['share_health'] == true;
+    shareActivity = link['share_activity'] == true;
+    notifyListeners();
+  }
+
+  MedicationRecord _routineFromApi(Map<String, dynamic> row) {
+    return MedicationRecord(
+      routineId: row['routine_id'] is int ? row['routine_id'] as int : null,
+      name: row['routine_title'] as String? ?? '일정',
+      time: row['routine_notify_time'] as String? ?? '',
+      category: row['routine_category'] as String? ?? 'schedule',
+      isTaken: row['is_done_today'] == true,
+    );
+  }
+
+  Map<String, dynamic> _notificationFromApi(Map<String, dynamic> row) {
+    return {
+      'alert_id': row['alert_id'],
+      'title': row['title'] ?? '알림',
+      'body': row['body'] ?? '',
+      'time': _timeLabel(row['alert_created_at']),
+      'isRead': row['is_read'] == true,
+      'type': _alertTypeToUi(row['alert_type'] as String?),
+      'priority': row['priority'],
+    };
+  }
+
+  Map<String, dynamic> _guardianLinkFromApi(Map<String, dynamic> row) {
+    final guardian = row['guardian'] is Map
+        ? Map<String, dynamic>.from(row['guardian'] as Map)
+        : <String, dynamic>{};
+    return {
+      'relation_id': row['relation_id'],
+      'guardian_id': row['guardian_id'],
+      'name': guardian['user_name'] ?? '보호자',
+      'login_id': guardian['login_id'] ?? '',
+      'phone': guardian['user_phone'] ?? '',
+      'relation': row['relation_name'] ?? '보호자',
+      'priority': row['priority'] ?? 1,
+      'share_location': row['share_location'] == true,
+      'share_health': row['share_health'] == true,
+      'share_activity': row['share_activity'] == true,
+    };
+  }
+
+  void _syncRoutineNotifications() {
+    final activeKeys = <String>{};
+
+    for (final routine in todayMedications) {
+      final key = _routineNotificationKey(routine);
+      activeKeys.add(key);
+      final type = routine.category == 'medication' ? 'medication' : 'schedule';
+      final enabled = notificationSettings[type] ?? true;
+      final shouldShow = !routine.isTaken &&
+          enabled &&
+          !_dismissedLocalNotificationKeys.contains(key);
+
+      notifications.removeWhere(
+          (notification) => notification['local_key'] == key && !shouldShow);
+
+      if (!shouldShow ||
+          notifications
+              .any((notification) => notification['local_key'] == key)) {
+        continue;
+      }
+
+      notifications.insert(0, {
+        'local_key': key,
+        'routine_id': routine.routineId,
+        'title': type == 'medication' ? '약 복용 알림' : '일정 알림',
+        'body': type == 'medication'
+            ? '${routine.time} ${routine.name} 복용 시간입니다.'
+            : '${routine.time} ${routine.name} 일정이 있습니다.',
+        'time': routine.time,
+        'isRead': _readLocalNotificationKeys.contains(key),
+        'type': type,
+        'priority': 'NORMAL',
+      });
+    }
+
+    notifications.removeWhere((notification) {
+      final key = notification['local_key'] as String?;
+      return key != null && !activeKeys.contains(key);
+    });
+  }
+
+  String _routineNotificationKey(MedicationRecord routine) {
+    final id = routine.routineId;
+    if (id != null) return 'routine_$id';
+    return 'routine_${routine.category}_${routine.name}_${routine.time}';
+  }
+
+  void _refreshUnreadCount() {
+    unreadNotifications = notifications
+        .where((notification) => notification['isRead'] != true)
+        .length;
+    hasEmergency = notifications.any((notification) =>
+        notification['type'] == 'emergency' && notification['isRead'] != true);
+    activityStatus = notifications.any((notification) =>
+            notification['type'] == 'activity' &&
+            notification['isRead'] != true)
+        ? '활동 주의'
+        : '활동 정상';
+  }
+
   // 실제 백엔드 응답 데이터로 로그인 처리
   void loginFromApi(Map<String, dynamic> userData) {
     final roleStr = userData['user_role'] as String? ?? 'RECIPIENT';
@@ -166,7 +477,11 @@ class AppState {
       emergencyContacts: _contactsFromApi(userData['emergency_contacts']),
       isAutoLogin: userData['auto_login_enabled'] == true,
     );
+    shareLocation = userData['share_location'] != false;
+    shareHealth = userData['share_health'] != false;
+    shareActivity = userData['share_activity'] == true;
     isLoggedIn = true;
+    notifyChanged();
   }
 
   List<EmergencyContact> _contactsFromApi(dynamic value) {
@@ -199,7 +514,9 @@ class AppState {
     if (summary is Map<String, dynamic>) {
       safetyStatus = summary['safety_status'] as String? ?? safetyStatus;
       healthStatus = summary['health_status'] as String? ?? healthStatus;
+      activityStatus = summary['activity_status'] as String? ?? activityStatus;
       locationStatus = summary['location_status'] as String? ?? locationStatus;
+      hasEmergency = safetyStatus.contains('긴급');
     }
 
     unreadNotifications = payload['unread_notifications'] is int
@@ -258,18 +575,11 @@ class AppState {
         ..clear()
         ..addAll(
           alertRows.whereType<Map>().map(
-                (a) => {
-                  'alert_id': a['alert_id'],
-                  'title': a['title'] ?? '알림',
-                  'body': a['body'] ?? '',
-                  'time': _timeLabel(a['alert_created_at']),
-                  'isRead': a['is_read'] == true,
-                  'type': _alertTypeToUi(a['alert_type'] as String?),
-                  'priority': a['priority'],
-                },
+                (a) => _notificationFromApi(Map<String, dynamic>.from(a)),
               ),
         );
     }
+    notifyChanged();
   }
 
   String _alertTypeToUi(String? type) {
@@ -313,5 +623,7 @@ class AppState {
   void logout() {
     currentUser = null;
     isLoggedIn = false;
+    linkedGuardians.clear();
+    notifyChanged();
   }
 }

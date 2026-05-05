@@ -472,6 +472,28 @@ def _ensure_user_defaults(db: Session, user: models.User) -> None:
             )
         )
 
+    if user.guardian_phone:
+        guardian = db.query(models.User).filter(
+            models.User.user_phone == user.guardian_phone,
+            models.User.user_role == models.UserRole.GUARDIAN,
+            models.User.user_is_deleted == False,
+        ).first()
+        if guardian and not db.query(models.CareRelation).filter(
+            models.CareRelation.guardian_id == guardian.user_id,
+            models.CareRelation.recipient_id == user.user_id,
+        ).first():
+            db.add(
+                models.CareRelation(
+                    guardian_id=guardian.user_id,
+                    recipient_id=user.user_id,
+                    relation_name="보호자",
+                    priority=1,
+                    share_location=bool(user.share_location),
+                    share_health=bool(user.share_health),
+                    share_activity=bool(user.share_activity),
+                )
+            )
+
     if not db.query(models.GameMission).filter(models.GameMission.user_id == user.user_id).first():
         db.add_all(
             [
@@ -694,7 +716,22 @@ async def get_dashboard(user_id: int, db: Session = Depends(get_db)):
         if r.routine_category == "medication" and not r.is_done_today
     ]
     safety_status = "긴급" if open_emergency else "주의 필요" if abnormal_alert else "현재 안전"
-    health_status = "오늘 약 복용 1회 남음" if remaining_meds else "건강 루틴 정상"
+    medication_count = sum(1 for r in routines if r.routine_category == "medication")
+    taken_medication_count = medication_count - len(remaining_meds)
+    schedules = [r for r in routines if r.routine_category != "medication"]
+    completed_schedules = sum(1 for r in schedules if r.is_done_today)
+    activity_alert = db.query(models.Alert).filter(
+        models.Alert.recipient_id == user_id,
+        models.Alert.alert_type.in_(["NO_MOVEMENT", "MOTION_DETECTED"]),
+        models.Alert.is_read == False,
+    ).first()
+
+    health_status = (
+        f"약 복용 {taken_medication_count}/{medication_count} 완료"
+        if medication_count
+        else "등록된 약 없음"
+    )
+    activity_status = "활동 주의" if activity_alert else "활동 정상"
     location_status = latest_location.address if latest_location else user.user_address or "위치 정보 없음"
 
     return {
@@ -702,13 +739,16 @@ async def get_dashboard(user_id: int, db: Session = Depends(get_db)):
         "summary": {
             "safety_status": safety_status,
             "health_status": health_status,
+            "activity_status": activity_status,
             "location_status": location_status,
             "schedule_status": f"오늘 일정 {len(routines)}개",
             "notification_status": "이상 알림 없음" if unread_count == 0 else f"읽지 않은 알림 {unread_count}개",
         },
         "care_summary": [
-            "현재 안전 상태를 확인했습니다.",
+            safety_status,
             health_status,
+            f"일정 {completed_schedules}/{len(schedules)} 완료" if schedules else "등록된 일정 없음",
+            activity_status,
             f"활동 기기 {sum(1 for d in devices if d.device_status)}/{len(devices)}개 연결",
             "보호자 메시지와 중요 알림을 확인하세요." if unread_count else "확인되지 않은 알림이 없습니다.",
         ],
@@ -1056,7 +1096,25 @@ async def connect_guardian(user_id: int, payload: GuardianLinkRequest, db: Sessi
         relation.priority = payload.priority
     db.commit()
     db.refresh(relation)
-    return _serialize_relation(relation, recipient)
+    data = _serialize_relation(relation, recipient)
+    data["guardian"] = _serialize_user(guardian)
+    return data
+
+
+@app.get("/api/users/{user_id}/guardian-links")
+async def list_guardian_links(user_id: int, db: Session = Depends(get_db)):
+    _get_user(db, user_id)
+    relations = db.query(models.CareRelation).filter(
+        models.CareRelation.recipient_id == user_id,
+        models.CareRelation.is_active == True,
+    ).order_by(models.CareRelation.priority).all()
+    result = []
+    for relation in relations:
+        guardian = _get_user(db, relation.guardian_id)
+        data = _serialize_relation(relation)
+        data["guardian"] = _serialize_user(guardian)
+        result.append(data)
+    return result
 
 
 @app.get("/api/guardians/{guardian_id}/recipients")

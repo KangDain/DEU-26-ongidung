@@ -16,6 +16,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  final AppState _state = AppState.instance;
 
   final List<Widget> _tabs = const [
     DashboardTab(),
@@ -26,8 +27,24 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _state.addListener(_refresh);
+  }
+
+  @override
+  void dispose() {
+    _state.removeListener(_refresh);
+    super.dispose();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final user = AppState.instance.currentUser;
+    final user = _state.currentUser;
     final isGuardian = user?.userType == UserType.guardian;
 
     return Scaffold(
@@ -51,8 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Badge(
               isLabelVisible: isGuardian &&
-                  AppState.instance.guardianUsers
-                      .any((u) => u['hasAlert'] == true),
+                  _state.guardianUsers.any((u) => u['hasAlert'] == true),
               child: const Icon(Icons.supervisor_account_outlined),
             ),
             selectedIcon: const Icon(Icons.supervisor_account),
@@ -60,8 +76,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           NavigationDestination(
             icon: Badge(
-              label: Text('${AppState.instance.unreadNotifications}'),
-              isLabelVisible: AppState.instance.unreadNotifications > 0,
+              label: Text('${_state.unreadNotifications}'),
+              isLabelVisible: _state.unreadNotifications > 0,
               child: const Icon(Icons.more_horiz),
             ),
             label: '더보기',
