@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/app_state.dart';
+import '../services/api_service.dart';
 import 'home_screen.dart';
 import 'signup_screen.dart';
 
@@ -26,22 +27,26 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _login() async {
+  Future<void> _login() async {
     if (_idController.text.isEmpty || _pwController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('아이디와 비밀번호를 입력해주세요.')),
-      );
+      _showSnack('아이디와 비밀번호를 입력해주세요.');
       return;
     }
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 800));
-    AppState.instance.login(_idController.text, _pwController.text);
-    if (mounted) {
-      setState(() => _isLoading = false);
+
+    final result = await ApiService.login(_idController.text, _pwController.text);
+
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (result.data != null) {
+      AppState.instance.loginFromApi(result.data!);
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
+    } else {
+      _showSnack(result.error ?? '로그인 실패', isError: true);
     }
   }
 
@@ -50,11 +55,14 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _pinDigits.add(digit));
       if (_pinDigits.length == 6) {
         Future.delayed(const Duration(milliseconds: 300), () {
+          // PIN 로그인은 별도 검증 로직 필요 — 현재는 로컬 처리
           AppState.instance.login('user', 'pin');
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
-          );
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const HomeScreen()),
+            );
+          }
         });
       }
     }
@@ -62,6 +70,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _removePin() {
     if (_pinDigits.isNotEmpty) setState(() => _pinDigits.removeLast());
+  }
+
+  void _showSnack(String msg, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? Colors.red.shade600 : null,
+      ),
+    );
   }
 
   @override
@@ -109,9 +126,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const SignupScreen())),
+                      context,
+                      MaterialPageRoute(builder: (_) => const SignupScreen()),
+                    ),
                     child: const Text('회원가입'),
                   ),
                   const Text('|', style: TextStyle(color: Colors.grey)),
@@ -149,15 +166,14 @@ class _LoginScreenState extends State<LoginScreen> {
             labelText: '비밀번호',
             prefixIcon: const Icon(Icons.lock),
             suffixIcon: IconButton(
-              icon: Icon(
-                  _obscurePassword ? Icons.visibility_off : Icons.visibility),
-              onPressed: () =>
-                  setState(() => _obscurePassword = !_obscurePassword),
+              icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
             ),
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
+          onSubmitted: (_) => _login(),
         ),
         const SizedBox(height: 8),
         Row(
@@ -178,26 +194,23 @@ class _LoginScreenState extends State<LoginScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.blue.shade600,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: _isLoading
-                ? const CircularProgressIndicator(color: Colors.white)
-                : const Text('로그인',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  )
+                : const Text('로그인', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ),
         ),
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(
-                child: _socialButton(
-                    Icons.message, '카카오 로그인', Colors.yellow.shade700)),
+            Expanded(child: _socialButton(Icons.message, '카카오 로그인', Colors.yellow.shade700)),
             const SizedBox(width: 8),
-            Expanded(
-                child: _socialButton(
-                    Icons.g_mobiledata, '구글 로그인', Colors.red.shade400)),
+            Expanded(child: _socialButton(Icons.g_mobiledata, '구글 로그인', Colors.red.shade400)),
           ],
         ),
       ],
@@ -206,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _socialButton(IconData icon, String label, Color color) {
     return OutlinedButton.icon(
-      onPressed: () {},
+      onPressed: () => _showSnack('소셜 로그인은 준비 중입니다.'),
       icon: Icon(icon, color: color),
       label: Text(label, style: TextStyle(color: color)),
       style: OutlinedButton.styleFrom(
@@ -225,26 +238,25 @@ class _LoginScreenState extends State<LoginScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(
-              6,
-              (i) => Container(
-                    width: 20,
-                    height: 20,
-                    margin: const EdgeInsets.symmetric(horizontal: 8),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: i < _pinDigits.length
-                          ? Colors.blue.shade600
-                          : Colors.grey.shade300,
-                      border: Border.all(color: Colors.blue.shade600),
-                    ),
-                  )),
+            6,
+            (i) => Container(
+              width: 20,
+              height: 20,
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: i < _pinDigits.length ? Colors.blue.shade600 : Colors.grey.shade300,
+                border: Border.all(color: Colors.blue.shade600),
+              ),
+            ),
+          ),
         ),
         const SizedBox(height: 32),
         for (var row in [
           ['1', '2', '3'],
           ['4', '5', '6'],
           ['7', '8', '9'],
-          ['', '0', '⌫']
+          ['', '0', '⌫'],
         ])
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -264,15 +276,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: d.isEmpty
                               ? []
-                              : [
-                                  const BoxShadow(
-                                      color: Colors.black12, blurRadius: 4)
-                                ],
+                              : [const BoxShadow(color: Colors.black12, blurRadius: 4)],
                         ),
                         child: Center(
                           child: Text(d,
-                              style: const TextStyle(
-                                  fontSize: 24, fontWeight: FontWeight.bold)),
+                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                         ),
                       ),
                     ))
@@ -290,10 +298,11 @@ class _LoginScreenState extends State<LoginScreen> {
           borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => Padding(
         padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 24,
-            right: 24,
-            top: 24),
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 24,
+          right: 24,
+          top: 24,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -303,7 +312,9 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 16),
             const TextField(
               decoration: InputDecoration(
-                  labelText: '등록된 휴대폰 번호', prefixIcon: Icon(Icons.phone)),
+                labelText: '등록된 휴대폰 번호',
+                prefixIcon: Icon(Icons.phone),
+              ),
             ),
             const SizedBox(height: 12),
             SizedBox(
@@ -311,9 +322,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: ElevatedButton(
                 onPressed: () {
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('인증번호가 발송되었습니다.')),
-                  );
+                  _showSnack('인증번호가 발송되었습니다.');
                 },
                 child: const Text('인증번호 받기'),
               ),

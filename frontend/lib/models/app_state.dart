@@ -72,23 +72,55 @@ class AppState {
     },
   ];
 
-  void login(String id, String password) {
+  // 실제 백엔드 응답 데이터로 로그인 처리
+  void loginFromApi(Map<String, dynamic> userData) {
+    final roleStr = userData['user_role'] as String? ?? 'RECIPIENT';
+    final typeStr = userData['user_type'] as String? ?? 'GENERAL';
+
+    UserType userType;
+    if (roleStr == 'ADMIN') {
+      userType = UserType.admin;
+    } else if (roleStr == 'GUARDIAN') {
+      userType = UserType.guardian;
+    } else {
+      switch (typeStr) {
+        case 'ELDERLY':
+          userType = UserType.elderly;
+          break;
+        case 'CHILD':
+          userType = UserType.child;
+          break;
+        default:
+          userType = UserType.general;
+      }
+    }
+
     currentUser = UserModel(
-      id: id,
-      name: id == 'admin' ? '관리자' : '홍길동',
-      birthDate: '1950-03-15',
-      phone: '010-1234-5678',
-      address: '서울시 강남구 테헤란로 123',
-      guardianPhone: '010-9876-5432',
-      userType: id == 'admin' ? UserType.admin : id == 'guardian' ? UserType.guardian : UserType.elderly,
-      medications: ['혈압약', '당뇨약', '비타민'],
-      emergencyContacts: [
-        const EmergencyContact(name: '김철수 (아들)', phone: '010-9876-5432', relation: '아들', priority: 1),
-        const EmergencyContact(name: '이영희 (딸)', phone: '010-5555-4444', relation: '딸', priority: 2),
-        const EmergencyContact(name: '응급 센터', phone: '119', relation: '응급기관', priority: 3),
-      ],
+      id: userData['login_id'] as String? ?? '',
+      name: userData['user_name'] as String? ?? '',
+      birthDate: userData['user_birth_date'] as String? ?? '',
+      phone: userData['user_phone'] as String? ?? '',
+      address: userData['user_address'] as String? ?? '',
+      guardianPhone: userData['guardian_phone'] as String? ?? '',
+      userType: userType,
+      medications: const [],
+      emergencyContacts: const [],
     );
     isLoggedIn = true;
+  }
+
+  // 테스트용 로컬 로그인 (백엔드 없이 UI 확인 시 사용)
+  void login(String id, String password) {
+    loginFromApi({
+      'login_id': id,
+      'user_name': id == 'admin' ? '관리자' : '홍길동',
+      'user_role': id == 'admin' ? 'ADMIN' : id == 'guardian' ? 'GUARDIAN' : 'RECIPIENT',
+      'user_type': 'ELDERLY',
+      'user_phone': '010-1234-5678',
+      'user_birth_date': '1950-03-15',
+      'user_address': '서울시 강남구 테헤란로 123',
+      'guardian_phone': '010-9876-5432',
+    });
   }
 
   void logout() {
