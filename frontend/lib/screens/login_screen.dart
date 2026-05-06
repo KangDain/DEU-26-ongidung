@@ -3,6 +3,8 @@ import '../models/app_state.dart';
 import '../services/api_service.dart';
 import 'home_screen.dart';
 import 'signup_screen.dart';
+import '../models/user_model.dart';
+import 'admin_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -71,10 +73,19 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     if (result.data != null) {
       AppState.instance.loginFromApi(result.data!);
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
+
+      // 관리자면 관리자 화면, 홈 화면
+      if (AppState.instance.currentUser?.userType == UserType.admin) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminScreen()), // 관리자 화면 이름
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
     } else {
       _showSnack(result.error ?? 'PIN 로그인 실패', isError: true);
       setState(() => _pinDigits.clear());
