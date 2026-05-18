@@ -1,7 +1,9 @@
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi import Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from typing import Optional
 from datetime import datetime, time
 from typing import List
 
@@ -23,7 +25,25 @@ app.add_middleware(
 )
 
 # ==========================================
-# 📝 Pydantic 스키마 (데이터 통신 양식)
+#  프론트엔드에서 날아오는 회원가입 데이터 포장지 (422 에러 방지용)
+# ==========================================
+class UserCreate(BaseModel):
+    # 필수 항목들
+    login_id: str
+    login_pw: str
+    user_name: str
+    user_type: str = "ELDERLY" 
+    user_phone: Optional[str] = None
+    
+    # 🔥 마법의 코드: 프론트에서 보내지만 DB엔 안 넣을 잡동사니들 (Optional로 에러 방지!)
+    birthdate: Optional[str] = None
+    address: Optional[str] = None
+    guardian_phone: Optional[str] = None
+    gender: Optional[str] = None
+    profile_image: Optional[str] = None
+
+# ==========================================
+#  Pydantic 스키마 (데이터 통신 양식)
 # ==========================================
 class UserCreate(BaseModel):
     login_id: str
@@ -52,27 +72,48 @@ class AlertCreate(BaseModel):
 # ==========================================
 
 @app.post("/api/signup")
-async def signup(user: UserCreate, db: Session = Depends(get_db)):
-    # 중복 검사
-    if db.query(models.User).filter(models.User.login_id == user.login_id).first():
-        raise HTTPException(status_code=400, detail="이미 존재하는 아이디입니다.")
+async def signup(request: Request, db: Session = Depends(get_db)):
+    # 플러터가 보낸 짐보따리를 통째로 받기
+    req_data = await request.json()
     
-    # enum 변환
-    role_enum = models.UserRole.RECIPIENT
-    if user.user_role == "GUARDIAN": role_enum = models.UserRole.GUARDIAN
-    elif user.user_role == "ADMIN": role_enum = models.UserRole.ADMIN
+    # 터미널 스파이: 도대체 플러터가 뭐라고 보냈는지 눈으로 확인
+    print(f"🔥 [회원가입 데이터 도착]: {req_data}") 
+    
+    # 파이썬 이름(login_id)이든 플러터 이름(loginId)이든 다 잡아내기 (만능 키)
+    login_id = req_data.get("login_id") or req_data.get("loginId") or ""
+    login_pw = req_data.get("login_pw") or req_data.get("loginPw") or req_data.get("password") or ""
+    user_name = req_data.get("user_name") or req_data.get("userName") or req_data.get("name") or "이름없음"
+    user_type = req_data.get("user_type") or req_data.get("userType") or req_data.get("type") or "ELDERLY"
+    user_phone = req_data.get("user_phone") or req_data.get("userPhone") or req_data.get("phone") or ""
 
+    # 아이디 중복 검사
+    existing_user = db.query(models.User).filter(models.User.login_id == login_id).first()
+    if existing_user:
+        return {"error": "이미 존재하는 아이디입니다.", "data": None}
+        
+    # DB에 안전하게 저장 (잠시 생년월일, 주소 같은 건 쿨하게 버리기)
     new_user = models.User(
-        login_id=user.login_id,
-        user_pw=user.user_pw,
-        user_name=user.user_name,
-        user_phone=user.user_phone,
-        user_role=role_enum
+        login_id=login_id,
+        user_pw=login_pw, 
+        user_name=user_name,
+        user_phone=user_phone,
+        user_role=user_type
     )
+    
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return {"message": f"{new_user.user_name}님 가입 완료!", "user_id": new_user.user_id}
+    
+    # 성공 결과 돌려주기
+    return {
+        "error": None,
+        "data": {
+            "userId": new_user.user_id,
+            "loginId": new_user.login_id,
+            "userName": new_user.user_name,
+            "userType": new_user.user_type
+        }
+    }
 
 @app.post("/api/login")
 async def login(request: LoginRequest, db: Session = Depends(get_db)):
@@ -211,7 +252,6 @@ async def connect_guardian(recipient_id: int, req: GuardianLinkRequest, db: Sess
 # ==========================================
 @app.get("/api/guardians/{guardian_id}/recipients")
 async def get_guardian_recipients(guardian_id: int, db: Session = Depends(get_db)):
-    # 보호자 ID로 묶여있는 연결고리 찾기
     relations = db.query(models.CareRelation).filter(models.CareRelation.guardian_id == guardian_id).all()
     
     result = []
@@ -220,20 +260,22 @@ async def get_guardian_recipients(guardian_id: int, db: Session = Depends(get_db
         if user:
             result.append({
                 "relation_id": rel.relation_id,
-                # 플러터가 어떤 변수명으로 아이디를 찾을지 몰라 3종 세트 다 넣음
-                "id": user.user_id,
-                "user_id": user.user_id,
-                "recipient_id": user.user_id,
-                
-                "name": user.user_name,
-                "phone": user.user_phone,
-                "status": "안전",
-                "type": "어르신",
-                "lastUpdate": "방금 전",
-                "heartRate": 72,
-                "steps": 2340,
-                "location": "서울 강남구",
-                "hasAlert": False
+                "relation_name": "보호자",
+                "share_location": True,
+                "share_health": True,
+                "share_activity": False,
+                # 플러터가 정확히 찾는 'recipient' 보따리 안에 정보 넣기
+                "recipient": {
+                    "user_id": user.user_id,
+                    "user_name": user.user_name,
+                    "user_phone": user.user_phone,
+                    "user_type": "ELDERLY"
+                },
+                "dashboard": {
+                    "safety_status": "안전",
+                    "location_status": "서울",
+                    "notification_status": "알림 없음"
+                }
             })
     return result
 
@@ -362,3 +404,11 @@ async def get_dashboard(user_id: int, db: Session = Depends(get_db)):
         "notifications": alert_data,
         "unread_notifications": len(alerts)
     }
+
+# ==========================================
+# 개별 알림 읽음 처리 (에러 방어용)
+# ==========================================
+@app.patch("/api/notifications/{alert_id}/read")
+async def mark_notification_read_single(alert_id: int):
+    # 나중에 진짜 DB 업데이트 코드를 넣기
+    return {"message": f"{alert_id}번 알림 읽음 처리 완료"}

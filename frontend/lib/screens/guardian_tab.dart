@@ -161,6 +161,7 @@ class _GuardianTabState extends State<GuardianTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CircleAvatar(
                     backgroundColor:
@@ -173,20 +174,22 @@ class _GuardianTabState extends State<GuardianTab> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        // 🔥 Row 대신 Wrap을 써서 좁으면 알아서 줄바꿈되게 수정!
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(user['name'],
                                 style: const TextStyle(
                                     fontWeight: FontWeight.bold, fontSize: 16)),
-                            const SizedBox(width: 8),
                             Chip(
                               label: Text(user['type'],
                                   style: const TextStyle(fontSize: 11)),
                               padding: EdgeInsets.zero,
                               visualDensity: VisualDensity.compact,
                             ),
-                            if (hasAlert) ...[
-                              const SizedBox(width: 8),
+                            if (hasAlert)
                               const Chip(
                                 label: Text('주의',
                                     style: TextStyle(
@@ -195,15 +198,16 @@ class _GuardianTabState extends State<GuardianTab> {
                                 padding: EdgeInsets.zero,
                                 visualDensity: VisualDensity.compact,
                               ),
-                            ],
                           ],
                         ),
+                        const SizedBox(height: 4),
                         Text('마지막 업데이트: ${user['lastUpdate']}',
                             style: const TextStyle(
                                 color: Colors.grey, fontSize: 12)),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -230,8 +234,11 @@ class _GuardianTabState extends State<GuardianTab> {
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+              // 🔥 통계 아이콘들도 공간 모자라면 안 깨지게 Wrap 적용!
+              Wrap(
+                alignment: WrapAlignment.spaceAround,
+                spacing: 16,
+                runSpacing: 8,
                 children: [
                   _statChip(Icons.monitor_heart, '${user['heartRate']} bpm',
                       Colors.red),
@@ -241,6 +248,7 @@ class _GuardianTabState extends State<GuardianTab> {
                 ],
               ),
               const SizedBox(height: 12),
+              // 🔥 가장 에러가 많았던 버튼들! 좁으면 글자를 줄여주는 FittedBox 투입!
               Row(
                 children: [
                   Expanded(
@@ -249,16 +257,24 @@ class _GuardianTabState extends State<GuardianTab> {
                         context,
                         MaterialPageRoute(
                             builder: (_) => const LocationScreen())),
-                    icon: const Icon(Icons.location_on, size: 16),
-                    label: const Text('위치'),
+                    icon: const Icon(Icons.location_on, size: 14),
+                    label: const FittedBox(child: Text('위치')),
+                    style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4)),
                   )),
                   const SizedBox(width: 8),
                   Expanded(
                       child: OutlinedButton.icon(
-                    onPressed: () => _sendMessage(user['name'],
-                        receiverId: user['user_id'] as int?),
-                    icon: const Icon(Icons.message, size: 16),
-                    label: const Text('메시지'),
+                    onPressed: () => _sendMessage(
+                      user['name'],
+                      receiverId: (user['id'] ??
+                          user['user_id'] ??
+                          user['recipient_id']) as int?,
+                    ),
+                    icon: const Icon(Icons.message, size: 14),
+                    label: const FittedBox(child: Text('메시지')),
+                    style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4)),
                   )),
                   const SizedBox(width: 8),
                   Expanded(
@@ -266,9 +282,10 @@ class _GuardianTabState extends State<GuardianTab> {
                     onPressed: () => _callPhone(user['phone'] as String?),
                     style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue.shade600,
-                        foregroundColor: Colors.white),
-                    icon: const Icon(Icons.phone, size: 16),
-                    label: const Text('통화'),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 4)),
+                    icon: const Icon(Icons.phone, size: 14),
+                    label: const FittedBox(child: Text('통화')),
                   )),
                 ],
               ),

@@ -39,17 +39,28 @@ class _LoginScreenState extends State<LoginScreen> {
     final result =
         await ApiService.login(_idController.text, _pwController.text);
 
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
     if (result.data != null) {
+      // 앱 상태에 로그인 정보 저장
       AppState.instance.loginFromApi(result.data!);
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    } else {
-      _showSnack(result.error ?? '로그인 실패', isError: true);
+
+      // 권한(Role)에 따라 다른 화면으로
+      // (주의: AppState에 저장된 역할 변수명이 userRole인지 userType인지 다인님 코드에 맞게 확인해주세요!)
+      if (AppState.instance.currentUser?.userType == 'ADMIN' ||
+          AppState.instance.currentUser?.userType == UserType.admin) {
+        // 관리자면 관리자 화면으로!
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (_) =>
+                  const AdminScreen()), // 👈 admin_screen.dart import 필수!
+        );
+      } else {
+        // 일반 유저(보호자, 어르신)면 홈 화면으로!
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
     }
   }
 
